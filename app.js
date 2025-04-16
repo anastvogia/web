@@ -11,26 +11,25 @@ app.use(express.json());
 
 // MySQL configuration
 const dbConfig = {
-  port: '3307',
   host: 'localhost',
   user: 'root',
-  password: 'aggelos2004!',
+  password: '12345',
   database: 'web'
 };
 
-/*(async () => {
-  const connection = await mysql.createConnection(dbConfig);
-  const [users] = await connection.query('SELECT id, password FROM users');
+// (async () => {
+//   const connection = await mysql.createConnection(dbConfig);
+//   const [users] = await connection.query('SELECT id, password FROM users');
 
-  for (const user of users) {
-    const hashedPassword = await bcrypt.hash(user.password, 10);
-    await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
-    console.log(`Updated password for user ID ${user.id}`);
-  }
+//   for (const user of users) {
+//     const hashedPassword = await bcrypt.hash(user.password, 10);
+//     await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
+//     console.log(`Updated password for user ID ${user.id}`);
+//   }
 
-  await connection.end();
-})();
-*/
+//   await connection.end();
+// })();
+
 
 // Session configuration
 const sessionConfig = {
@@ -171,6 +170,32 @@ app.get('/api/check-session', (req, res) => {
     });
   } else {
     res.json({ loggedIn: false });
+  }
+});
+
+app.get('/api/student-thesis', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Not logged in' });
+  }
+
+  const studentId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig); // Ensure connection is established
+    const [rows] = await connection.query(
+      'SELECT * FROM thesis WHERE student_id = ?',
+      [studentId]
+    );
+    await connection.end();
+
+    if (rows.length === 0) {
+      return res.status(404).json({ error: 'No thesis found for this student' });
+    }
+
+    res.json(rows[0]); // Return the first thesis found for the student
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch thesis' });
   }
 });
 

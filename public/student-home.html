@@ -45,20 +45,19 @@
         View Thesis Topic
       </div>
       <div class="card-body">
-        <p><strong>Title:</strong> [Thesis Title]</p>
-        <p><strong>Description:</strong> [Brief description of thesis]</p>
-        <p><strong>Status:</strong> [Thesis status]</p>
-        <p><strong>Assigned Date:</strong> [Date]</p>
-        <p><strong>Time Elapsed:</strong> [e.g., "3 months"]</p>
-        <p><strong>Three-Member Committee:</strong></p>
-        <ul>
-          <li>Professor A</li>
-          <li>Professor B</li>
-          <li>Professor C</li>
-        </ul>
-        <a href="#" class="btn btn-outline-primary btn-sm">Download Description File</a>
+        <h2 id="thesis-title" class="mb-3">Title will be injected here</h2>
+    
+        <p><strong>Status:</strong> <span id="thesis-status">Status will be injected here</span></p>
+        <p><strong>Assigned Date:</strong> <span id="thesis-assigned-date">Assigned date will be injected here</span></p>
+        <p><strong>Description:</strong> <span id="thesis-description">Description will be injected here</span></p>
+        <p><strong>Time Elapsed:</strong> <span id="thesis-elapsed">[e.g., "3 months"]</span></p>
+        <p><strong>Three-Member Committee:</strong> <span id="thesis-committee">Committee will be injected here</span></p>
+    
+        <a id="thesis-download" href="#" class="btn btn-outline-primary btn-sm" target="_blank">Download Description File</a>
       </div>
     </div>
+    
+    
 
     <!-- Edit Profile -->
     <div class="card mb-4">
@@ -136,5 +135,6 @@
         });
     });
   </script>
+  <script src="main.js"></script>
 </body>
 </html>
