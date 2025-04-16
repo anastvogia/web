@@ -1,6 +1,7 @@
 const express = require('express');
 const mysql = require('mysql2/promise');
 const path = require('path');
+const session = require('express-session');
 const app = express();
 const PORT = 3000;
 
@@ -15,15 +16,34 @@ const dbConfig = {
   database: 'web'
 };
 
+// Session configuration
+const sessionConfig = {
+  secret: 'your-secret-key', // Use a strong secret key
+  resave: false,
+  saveUninitialized: true,
+  cookie: { secure: false, maxAge: 1000 * 60 * 60 * 24 } // 1 day
+};
+
+// Session middleware
+app.use(session(sessionConfig));
+
 // Serve static files (HTML, CSS, JS) from "public" folder
 app.use(express.static(path.join(__dirname, 'public')));
 
 // Serve login page as default landing page
 app.get('/', (req, res) => {
+  res.redirect('/login.html');
+});
+
+// Serve login page if not logged in
+app.get('/login.html', (req, res) => {
+  if (req.session.user) {
+    return res.redirect(`/login.html`); // Redirect logged-in users to the appropriate page
+  }
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
-// Handle login POST request
+// Login route
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
 
@@ -37,6 +57,7 @@ app.post('/api/login', async (req, res) => {
 
     if (rows.length === 1) {
       const user = rows[0];
+      req.session.user = { id: user.id, username: user.username, role: user.role }; // Store user info in session
       res.json({ success: true, role: user.role });
     } else {
       res.json({ success: false, message: 'Invalid username or password' });
@@ -45,6 +66,41 @@ app.post('/api/login', async (req, res) => {
     console.error(err);
     res.status(500).json({ success: false, message: 'Server error' });
   }
+});
+
+// Logout route
+app.get('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return res.status(500).send('Could not log out.');
+    }
+    res.redirect('/login.html'); // Redirect to login after logout
+  });
+});
+
+// Middleware to check if user is authenticated and has the correct role
+function isAuthenticated(requiredRole) {
+  return (req, res, next) => {
+    if (!req.session.user) {
+      return res.redirect('/login.html'); // Redirect to login if not logged in
+    }
+
+    if (requiredRole && req.session.user.role !== requiredRole) {
+      return res.redirect('/login.html'); // Redirect if user doesn't have the required role
+    }
+
+    next(); // Allow access if authenticated and authorized
+  };
+}
+
+// Serve student-home.html only if the user is logged in and has 'student' role
+app.get('/student-home.html', isAuthenticated('student'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'student-home.html'));
+});
+
+// Serve secretariat-home.html only if the user is logged in and has 'secretariat' role
+app.get('/secretariat-home.html', isAuthenticated('secretariat'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'secretariat-home.html'));
 });
 
 // API to get all theses, sorted by assigned_date (newest first)
@@ -79,6 +135,20 @@ app.get('/api/thesis/:id', async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   }
 });
+// API to check if user is logged in and return their role
+// Check current session (used by navbar)
+app.get('/api/check-session', (req, res) => {
+  if (req.session && req.session.user) {
+    res.json({
+      loggedIn: true,
+      username: req.session.user.username,
+      role: req.session.user.role
+    });
+  } else {
+    res.json({ loggedIn: false });
+  }
+});
+
 
 // Start the server
 app.listen(PORT, () => {
