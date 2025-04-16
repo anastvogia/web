@@ -2,6 +2,7 @@ const express = require('express');
 const mysql = require('mysql2/promise');
 const path = require('path');
 const session = require('express-session');
+const bcrypt = require('bcryptjs');
 const app = express();
 const PORT = 3000;
 
@@ -10,11 +11,26 @@ app.use(express.json());
 
 // MySQL configuration
 const dbConfig = {
+  port: '3307',
   host: 'localhost',
   user: 'root',
-  password: '12345',
+  password: 'aggelos2004!',
   database: 'web'
 };
+
+/*(async () => {
+  const connection = await mysql.createConnection(dbConfig);
+  const [users] = await connection.query('SELECT id, password FROM users');
+
+  for (const user of users) {
+    const hashedPassword = await bcrypt.hash(user.password, 10);
+    await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
+    console.log(`Updated password for user ID ${user.id}`);
+  }
+
+  await connection.end();
+})();
+*/
 
 // Session configuration
 const sessionConfig = {
@@ -49,16 +65,23 @@ app.post('/api/login', async (req, res) => {
 
   try {
     const connection = await mysql.createConnection(dbConfig);
-    const [rows] = await connection.query(
-      'SELECT * FROM users WHERE username = ? AND password = ?',
-      [username, password]
-    );
+    const [rows] = await connection.query('SELECT * FROM users WHERE username = ?', [username]);
     await connection.end();
 
     if (rows.length === 1) {
       const user = rows[0];
-      req.session.user = { id: user.id, username: user.username, role: user.role }; // Store user info in session
-      res.json({ success: true, role: user.role });
+      const passwordMatch = await bcrypt.compare(password, user.password);
+
+      if (passwordMatch) {
+        req.session.user = {
+          id: user.id,
+          username: user.username,
+          role: user.role
+        };
+        res.json({ success: true, role: user.role });
+      } else {
+        res.json({ success: false, message: 'Invalid username or password' });
+      }
     } else {
       res.json({ success: false, message: 'Invalid username or password' });
     }
@@ -67,6 +90,8 @@ app.post('/api/login', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+
 
 // Logout route
 app.get('/logout', (req, res) => {
