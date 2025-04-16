@@ -80,8 +80,8 @@ window.addEventListener('DOMContentLoaded', () => {
     
           // Download file URL
           const downloadLink = document.getElementById('thesis-download');
-          if (thesis.description_file_url) {
-            downloadLink.href = thesis.description_file_url;
+          if (thesis.id) {
+            downloadLink.href = `/thesis/thesis-description-${thesis.id}.pdf`;
             downloadLink.style.display = 'inline-block';
           } else {
             downloadLink.style.display = 'none';

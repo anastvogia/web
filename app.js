@@ -45,6 +45,9 @@ app.use(session(sessionConfig));
 // Serve static files (HTML, CSS, JS) from "public" folder
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Serve static files from the "thesis" directory
+app.use('/thesis', express.static(path.join(__dirname, 'thesis')));
+
 // Serve login page as default landing page
 app.get('/', (req, res) => {
   res.redirect('/login.html');
