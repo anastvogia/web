@@ -12,24 +12,23 @@ app.use(express.json());
 // MySQL configuration
 const dbConfig = {
   host: 'localhost',
-  port: '3307',
   user: 'root',
-  password: 'aggelos2004!',
+  password: '12345',
   database: 'web'
 };
 
-(async () => {
-  const connection = await mysql.createConnection(dbConfig);
-  const [users] = await connection.query('SELECT id, password FROM users');
+// (async () => {
+//   const connection = await mysql.createConnection(dbConfig);
+//   const [users] = await connection.query('SELECT id, password FROM users');
 
-  for (const user of users) {
-    const hashedPassword = await bcrypt.hash(user.password, 10);
-    await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
-    console.log(`Updated password for user ID ${user.id}`);
-  }
+//   for (const user of users) {
+//     const hashedPassword = await bcrypt.hash(user.password, 10);
+//     await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
+//     console.log(`Updated password for user ID ${user.id}`);
+//   }
 
-  await connection.end();
-})();
+//   await connection.end();
+// })();
 
 
 // Session configuration
@@ -345,7 +344,7 @@ app.post('/api/respond-invite', async (req, res) => {
     if (accepted[0].count >= 2) {
       // Update thesis status
       await connection.query(
-        'UPDATE thesis SET status = "Under Review" WHERE id = ?', //active
+        'UPDATE thesis SET status = "active" WHERE id = ?', //active
         [thesisId]
       );
 

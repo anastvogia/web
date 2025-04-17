@@ -174,11 +174,11 @@
         document.getElementById('under-examination').style.display = 'none';
         document.getElementById('completed').style.display = 'none';
   
-        if (thesis.status === 'Active') {
+        if (thesis.status === 'active') {
           document.getElementById('under-assignment').style.display = 'block';
-        } else if (thesis.status === 'Under Review') {
+        } else if (thesis.status === 'under_review') {
           document.getElementById('under-examination').style.display = 'block';
-        } else if (thesis.status === 'Completed') {
+        } else if (thesis.status === 'completed') {
           document.getElementById('completed').style.display = 'block';
         }
   
@@ -191,7 +191,7 @@
         document.getElementById('thesis-committee').textContent = thesis.committee_names || 'Pending';
   
         // Handle committee invite logic
-        if (thesis.status === 'Active') { //UnderExamination
+        if (thesis.status === 'under_assignment') { //UnderExamination
           // Load professors
           fetch('/api/professors')
             .then(res => res.json())

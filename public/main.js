@@ -14,7 +14,7 @@ window.addEventListener('DOMContentLoaded', () => {
       
             thesis.forEach(thesis => {
               // Check if the status is either "Active" or "Under Review"
-              if (thesis.status === "Active" || thesis.status === "Under Review") {
+              if (thesis.status === "active" || thesis.status === "under_review") {
                 const row = document.createElement('tr');
                 row.innerHTML = `
                   <td><a href="thesis.html?id=${thesis.id}">${thesis.title}</a></td>
