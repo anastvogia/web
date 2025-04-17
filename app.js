@@ -3,6 +3,7 @@ const mysql = require('mysql2/promise');
 const path = require('path');
 const session = require('express-session');
 const bcrypt = require('bcryptjs');
+const multer = require('multer');
 const app = express();
 const PORT = 3000;
 
@@ -49,6 +50,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 // Serve static files from the "thesis" directory
 app.use('/thesis', express.static(path.join(__dirname, 'thesis')));
 
+// Serve static files from the "upload" directory
+app.use('/upload', express.static(path.join(__dirname, 'upload')));
+
+
 // Serve login page as default landing page
 app.get('/', (req, res) => {
   res.redirect('/login.html');
@@ -60,6 +65,41 @@ app.get('/login.html', (req, res) => {
     return res.redirect(`/login.html`); // Redirect logged-in users to the appropriate page
   }
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
+const draftStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, 'upload', 'drafts'));
+  },
+  filename: (req, file, cb) => {
+    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
+    cb(null, req.session.user.username + '-' + uniqueSuffix + path.extname(file.originalname));
+  }
+});
+const uploadDraft = multer({ storage: draftStorage });
+
+app.post('/api/upload-draft', uploadDraft.single('draft'), async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const filePath = `/upload/drafts/${req.file.filename}`;
+  const studentId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    await connection.query(
+      'UPDATE thesis SET draft_file_path = ? WHERE student_id = ?',
+      [filePath, studentId]
+    );
+
+    await connection.end();
+    res.json({ success: true, filePath });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to upload draft' });
+  }
 });
 
 // Login route
@@ -175,6 +215,88 @@ app.get('/api/thesis/:id', async (req, res) => {
     res.status(500).json({ error: 'Database error' });
   }
 });
+
+app.post('/api/set-links', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const { links } = req.body;
+  const studentId = req.session.user.id;
+
+  console.log(`Student ${studentId} submitted links:\n${links}`); // ✅ Add this
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    await connection.query(
+      'UPDATE thesis SET additional_links = ? WHERE student_id = ?',
+      [links, studentId]
+    );
+    await connection.end();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to save links' });
+  }
+});
+
+
+
+app.get('/api/exam-report', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'student') {
+    return res.status(403).send('Unauthorized');
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Get thesis
+    const [thesisRows] = await connection.query(`
+      SELECT id, title, exam_date, exam_location, nemertis_link
+      FROM thesis
+      WHERE student_id = ?
+    `, [req.session.user.id]);
+
+    if (thesisRows.length === 0) {
+      await connection.end();
+      return res.status(404).send('No report found');
+    }
+
+    const thesis = thesisRows[0];
+
+    // Get real committee members (accepted only)
+    const [committeeRows] = await connection.query(`
+      SELECT u.username
+      FROM committee_invites ci
+      JOIN users u ON ci.professor_id = u.id
+      WHERE ci.thesis_id = ? AND ci.status = 'accepted'
+    `, [thesis.id]);
+
+    const committeeList = committeeRows.map(member => member.username).join(', ') || 'Pending';
+
+    await connection.end();
+
+    const html = `
+      <html>
+        <head><title>Exam Report</title></head>
+        <body style="font-family: sans-serif; padding: 20px;">
+          <h2>Exam Report: ${thesis.title}</h2>
+          <p><strong>Committee:</strong> ${committeeList}</p>
+          <p><strong>Exam Date:</strong> ${new Date(thesis.exam_date).toLocaleString()}</p>
+          <p><strong>Location:</strong> ${thesis.exam_location}</p>
+          <p><strong>Nemertis Link:</strong> <a href="${thesis.nemertis_link}" target="_blank">${thesis.nemertis_link}</a></p>
+        </body>
+      </html>
+    `;
+
+    res.send(html);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+
 // API to check if user is logged in and return their role
 // Check current session (used by navbar)
 app.get('/api/check-session', (req, res) => {
@@ -451,6 +573,54 @@ app.get('/api/invites-for-me', async (req, res) => {
     res.status(500).json({ error: 'Failed to load invitations' });
   }
 });
+// API to set exam details (date, location, link) for a thesis
+// Only accessible by students
+app.post('/api/set-exam-details', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const { exam_date, exam_mode, exam_location } = req.body;
+  const studentId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    await connection.query(
+      `UPDATE thesis 
+       SET exam_date = ?, exam_mode = ?, exam_location = ? 
+       WHERE student_id = ?`,
+      [exam_date, exam_mode, exam_location, studentId]
+    );
+    await connection.end();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update exam details' });
+  }
+});
+
+app.post('/api/set-nemertis-link', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const { nemertis_link } = req.body;
+  const studentId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    await connection.query(
+      'UPDATE thesis SET nemertis_link = ? WHERE student_id = ?',
+      [nemertis_link, studentId]
+    );
+    await connection.end();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to save link' });
+  }
+});
+
 
 
 // Start the server

@@ -108,11 +108,52 @@
 
         <div id="under-examination" class="mt-4">
           <h5>Under Examination</h5>
-          <button class="btn btn-outline-secondary btn-sm">Upload Draft Thesis</button>
+          <!-- Draft Upload Form -->
+            <form id="draft-upload-form" enctype="multipart/form-data" class="mb-3">
+              <label class="form-label">Upload Draft Thesis (PDF):</label>
+              <input type="file" name="draft" class="form-control mb-2" required accept=".pdf">
+              <button type="submit" class="btn btn-sm btn-outline-secondary">Upload Draft</button>
+            </form>
+            <form id="links-form" class="mb-3">
+              <label class="form-label">Additional Links (YouTube, Google Drive, etc.):</label>
+              <textarea id="additional_links" class="form-control mb-2" rows="3" placeholder="https://..."></textarea>
+              <button type="submit" class="btn btn-sm btn-outline-secondary">Save Links</button>
+            </form>
+            <!-- Exam Details Form -->
+            <form id="exam-details-form" class="mb-3">
+              <label class="form-label">Exam Date & Time:</label>
+              <input type="datetime-local" class="form-control mb-2" id="exam_date" required>
+            
+              <label class="form-label">Exam Mode:</label>
+              <select id="exam_mode" class="form-select mb-2" required>
+                <option value="">Select mode</option>
+                <option value="in_person">In Person</option>
+                <option value="online">Online</option>
+              </select>
+            
+              <label class="form-label">Location / Meeting Link:</label>
+              <input type="text" class="form-control mb-2" id="exam_location" required placeholder="Room number or Zoom/Teams link">
+            
+              <button type="submit" class="btn btn-sm btn-outline-secondary">Save Exam Details</button>
+            </form>            
+            <div id="draft-preview" class="mb-3" style="display:none;">
+              <h6 class="text-muted">Draft Preview:</h6>
+              <iframe id="draft-frame" width="100%" height="400px" class="border rounded"></iframe>
+            </div>
+            <form id="nemertis-form" class="mb-3">
+              <label class="form-label">Nemertis Repository Link:</label>
+              <input type="url" class="form-control mb-2" id="nemertis_link" placeholder="https://nemertis.lib.uoa.gr/..." required>
+              <button type="submit" class="btn btn-sm btn-outline-secondary">Save Nemertis Link</button>
+            </form>
+
+            <div id="saved-links" class="mt-2"></div>
+            
+          </div>
+          <!-- <button class="btn btn-outline-secondary btn-sm">Upload Draft Thesis</button>
           <button class="btn btn-outline-secondary btn-sm">Add Additional Material</button>
-          <button class="btn btn-outline-secondary btn-sm">Set Examination Details</button>
-          <button class="btn btn-outline-secondary btn-sm">View Exam Report</button>
-          <button class="btn btn-outline-secondary btn-sm">Add Nemertis Link</button>
+          <button class="btn btn-outline-secondary btn-sm">Set Examination Details</button> -->
+           <a href="/api/exam-report" target="_blank" class="btn btn-outline-secondary btn-sm mb-2">View Exam Report</a> 
+          <!-- <button class="btn btn-outline-secondary btn-sm">Add Nemertis Link</button> -->
         </div>
 
         <div id="completed" class="mt-4">
@@ -168,6 +209,11 @@
         // Get current thesis
         const thesisRes = await fetch('/api/student-thesis');
         const thesis = await thesisRes.json();
+        if (thesis.draft_file_path) {
+          document.getElementById('draft-preview').style.display = 'block';
+          document.getElementById('draft-frame').src = thesis.draft_file_path;
+        }
+
   
         // Show only the correct section
         document.getElementById('under-assignment').style.display = 'none';
@@ -181,6 +227,32 @@
         } else if (thesis.status === 'completed') {
           document.getElementById('completed').style.display = 'block';
         }
+        if (thesis.status === 'under_review') {
+          document.getElementById('under-examination').style.display = 'block';
+
+          // Show draft preview if uploaded
+          if (thesis.draft_file_path) {
+            document.getElementById('draft-preview').style.display = 'block';
+            document.getElementById('draft-frame').src = thesis.draft_file_path;
+          }
+
+          // Load existing additional links
+          if (thesis.additional_links) {
+            document.getElementById('additional_links').value = thesis.additional_links;
+
+            const linkBox = document.getElementById('saved-links');
+            const links = thesis.additional_links.split('\n').filter(line => line.trim() !== '');
+            links.forEach(link => {
+              const a = document.createElement('a');
+              a.href = link;
+              a.target = '_blank';
+              a.textContent = link;
+              a.className = 'd-block small text-primary';
+              linkBox.appendChild(a);
+            });
+          }
+        }
+
   
         // Inject basic thesis info
         document.getElementById('thesis-title').textContent = thesis.title;
@@ -251,6 +323,87 @@
         window.location.href = '/login.html';
       }
     });
+    // --- Handle Draft Upload Form ---
+document.getElementById('draft-upload-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const formData = new FormData(e.target);
+
+  const res = await fetch('/api/upload-draft', {
+    method: 'POST',
+    body: formData
+  });
+
+  const result = await res.json();
+  if (result.success) {
+    alert('Draft uploaded successfully!');
+  } else {
+    alert('Failed to upload draft.');
+  }
+});
+
+// --- Handle Exam Details Form ---
+document.getElementById('exam-details-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const exam_date = document.getElementById('exam_date').value;
+  const exam_mode = document.getElementById('exam_mode').value;
+  const exam_location = document.getElementById('exam_location').value;
+
+  const res = await fetch('/api/set-exam-details', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ exam_date, exam_mode, exam_location })
+  });
+
+  const result = await res.json();
+  alert(result.success ? 'Exam details saved!' : 'Failed to save exam details.');
+});
+
+document.getElementById('nemertis-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const nemertis_link = document.getElementById('nemertis_link').value;
+
+  const res = await fetch('/api/set-nemertis-link', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nemertis_link })
+  });
+
+  const result = await res.json();
+  alert(result.success ? 'Nemertis link saved!' : 'Failed to save link.');
+});
+
+// Load existing links
+if (thesis.additional_links) {
+  document.getElementById('additional_links').value = thesis.additional_links;
+
+  const linkBox = document.getElementById('saved-links');
+  const links = thesis.additional_links.split('\n').filter(line => line.trim() !== '');
+  links.forEach(link => {
+    const a = document.createElement('a');
+    a.href = link;
+    a.target = '_blank';
+    a.textContent = link;
+    a.className = 'd-block small text-primary';
+    linkBox.appendChild(a);
+  });
+}
+document.getElementById('links-form')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const links = document.getElementById('additional_links').value;
+
+  const res = await fetch('/api/set-links', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ links })
+  });
+
+  const result = await res.json();
+  alert(result.success ? 'Links saved!' : 'Failed to save links.');
+});
+
+
+
   </script>
   
   <script src="main.js"></script>
