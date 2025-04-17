@@ -11,9 +11,10 @@ app.use(express.json());
 
 // MySQL configuration
 const dbConfig = {
+  port:'3307',
   host: 'localhost',
   user: 'root',
-  password: '12345',
+  password: 'aggelos2004!',
   database: 'web'
 };
 
@@ -196,18 +197,35 @@ app.get('/api/student-thesis', async (req, res) => {
   const studentId = req.session.user.id;
 
   try {
-    const connection = await mysql.createConnection(dbConfig); // Ensure connection is established
-    const [rows] = await connection.query(
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Get thesis for student
+    const [thesisRows] = await connection.query(
       'SELECT * FROM thesis WHERE student_id = ?',
       [studentId]
     );
-    await connection.end();
 
-    if (rows.length === 0) {
+    if (thesisRows.length === 0) {
+      await connection.end();
       return res.status(404).json({ error: 'No thesis found for this student' });
     }
 
-    res.json(rows[0]); // Return the first thesis found for the student
+    const thesis = thesisRows[0];
+
+    // Get accepted professors for this thesis
+    const [committee] = await connection.query(
+      `SELECT u.username 
+       FROM committee_invites ci
+       JOIN users u ON ci.professor_id = u.id
+       WHERE ci.thesis_id = ? AND ci.status = 'accepted'`,
+      [thesis.id]
+    );
+
+    // Create a string of professor usernames like: "prof1, prof2, prof3"
+    thesis.committee_names = committee.map(c => c.username).join(', ') || null;
+
+    await connection.end();
+    res.json(thesis);
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to fetch thesis' });

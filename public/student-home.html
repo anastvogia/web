@@ -189,6 +189,7 @@
         document.getElementById('thesis-description').textContent = thesis.description;
         document.getElementById('thesis-download').href = '/thesis/' + thesis.file_path;
         document.getElementById('thesis-committee').textContent = thesis.committee_names || 'Pending';
+
   
         // Handle committee invite logic
         if (thesis.status === 'under_assignment') { //UnderExamination
