@@ -196,17 +196,20 @@ app.post('/api/import-users', importUpload.single('file'), async (req, res) => {
     let inserted = 0;
     for (const user of data) {
       const {
-        username, password = '123', role,
-        full_address = null, email = null, mobile_phone = null, landline = null
+      username, password, role,
+      full_address = null, email = null, mobile_phone = null, landline = null
       } = user;
 
       // Skip if role is not valid
       if (!['student', 'professor'].includes(role)) continue;
 
+      // Hash the password before inserting
+      const hashedPassword = await bcrypt.hash(password, 10);
+
       await connection.query(`
-        INSERT INTO users (username, password, role, full_address, email, mobile_phone, landline)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [username, password, role, full_address, email, mobile_phone, landline]);
+      INSERT INTO users (username, password, role, full_address, email, mobile_phone, landline)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [username, hashedPassword, role, full_address, email, mobile_phone, landline]);
 
       inserted++;
     }
@@ -261,7 +264,7 @@ app.post('/api/set-links', async (req, res) => {
   const { links } = req.body;
   const studentId = req.session.user.id;
 
-  console.log(`Student ${studentId} submitted links:\n${links}`); // ✅ Add this
+  console.log(`Student ${studentId} submitted links:\n${links}`);
 
   try {
     const connection = await mysql.createConnection(dbConfig);
