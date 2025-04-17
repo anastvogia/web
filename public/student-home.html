@@ -187,7 +187,7 @@
         document.getElementById('thesis-status').textContent = thesis.status;
         document.getElementById('thesis-assigned-date').textContent = thesis.assigned_date;
         document.getElementById('thesis-description').textContent = thesis.description;
-        document.getElementById('thesis-download').href = '/thesis/' + thesis.file_path;
+        document.getElementById('thesis-download').href = `/thesis/thesis-description-${thesis.id}.pdf`;
         document.getElementById('thesis-committee').textContent = thesis.committee_names || 'Pending';
 
   
