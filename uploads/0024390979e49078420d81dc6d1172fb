@@ -1,0 +1,11 @@
+[
+  {
+    "username": "johndoe",
+    "password": "password123",
+    "role": "student",
+    "full_address": "123 Main St, City, Country",
+    "email": "johndoe@example.com",
+    "mobile_phone": "+1234567890",
+    "landline": "+0987654321"
+  }
+]

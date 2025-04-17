@@ -128,7 +128,6 @@ app.post('/api/login', async (req, res) => {
 });
 
 
-
 // Logout route
 app.get('/logout', (req, res) => {
   req.session.destroy((err) => {
@@ -175,6 +174,51 @@ app.get('/login.html', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
 
+const importUpload = multer({ dest: 'uploads/' });
+
+app.post('/api/import-users', importUpload.single('file'), async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'secretariat') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const fs = require('fs');
+  const filePath = req.file.path;
+
+  try {
+    const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'));
+
+    if (!Array.isArray(data)) {
+      return res.status(400).json({ success: false, message: 'Invalid JSON structure.' });
+    }
+
+    const connection = await mysql.createConnection(dbConfig);
+
+    let inserted = 0;
+    for (const user of data) {
+      const {
+        username, password = '123', role,
+        full_address = null, email = null, mobile_phone = null, landline = null
+      } = user;
+
+      // Skip if role is not valid
+      if (!['student', 'professor'].includes(role)) continue;
+
+      await connection.query(`
+        INSERT INTO users (username, password, role, full_address, email, mobile_phone, landline)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `, [username, password, role, full_address, email, mobile_phone, landline]);
+
+      inserted++;
+    }
+
+    await connection.end();
+    fs.unlinkSync(filePath); // cleanup
+    res.json({ success: true, count: inserted });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ success: false, message: 'Import failed.' });
+  }
+});
 
 // API to get all theses, sorted by assigned_date (newest first)
 app.get('/api/thesis', async (req, res) => {
