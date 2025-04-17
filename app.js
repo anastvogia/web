@@ -18,18 +18,18 @@ const dbConfig = {
   database: 'web'
 };
 
-// (async () => {
-//   const connection = await mysql.createConnection(dbConfig);
-//   const [users] = await connection.query('SELECT id, password FROM users');
+(async () => {
+  const connection = await mysql.createConnection(dbConfig);
+  const [users] = await connection.query('SELECT id, password FROM users');
 
-//   for (const user of users) {
-//     const hashedPassword = await bcrypt.hash(user.password, 10);
-//     await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
-//     console.log(`Updated password for user ID ${user.id}`);
-//   }
+  for (const user of users) {
+    const hashedPassword = await bcrypt.hash(user.password, 10);
+    await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
+    console.log(`Updated password for user ID ${user.id}`);
+  }
 
-//   await connection.end();
-// })();
+  await connection.end();
+})();
 
 
 // Session configuration
@@ -130,6 +130,18 @@ app.get('/student-home.html', isAuthenticated('student'), (req, res) => {
 app.get('/secretariat-home.html', isAuthenticated('secretariat'), (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'secretariat-home.html'));
 });
+
+app.get('/login.html', (req, res) => {
+  if (req.session.user) {
+    if (req.session.user.role === 'student') {
+      return res.redirect('/student-home.html');
+    } else if (req.session.user.role === 'professor') {
+      return res.redirect('/professor-home.html');
+    }
+  }
+  res.sendFile(path.join(__dirname, 'public', 'login.html'));
+});
+
 
 // API to get all theses, sorted by assigned_date (newest first)
 app.get('/api/thesis', async (req, res) => {
@@ -250,8 +262,178 @@ app.post('/api/update-profile', async (req, res) => {
     res.status(500).json({ error: 'Failed to update profile' });
   }
 });
+app.post('/api/invite-professor', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
 
+  const { professorId } = req.body;
+  const studentId = req.session.user.id;
 
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Get the student's thesis ID
+    const [thesisRows] = await connection.query('SELECT id FROM thesis WHERE student_id = ?', [studentId]);
+    if (thesisRows.length === 0) {
+      await connection.end();
+      return res.status(404).json({ error: 'Thesis not found' });
+    }
+    const thesisId = thesisRows[0].id;
+
+    // Check if already invited
+    const [existing] = await connection.query(
+      'SELECT * FROM committee_invites WHERE thesis_id = ? AND professor_id = ?',
+      [thesisId, professorId]
+    );
+    if (existing.length > 0) {
+      await connection.end();
+      return res.status(400).json({ error: 'Professor already invited' });
+    }
+
+    // Insert invite
+    await connection.query(
+      'INSERT INTO committee_invites (thesis_id, professor_id) VALUES (?, ?)',
+      [thesisId, professorId]
+    );
+
+    await connection.end();
+    res.json({ success: true, message: 'Invitation sent' });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to invite professor' });
+  }
+});
+app.post('/api/respond-invite', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const professorId = req.session.user.id;
+  const { inviteId, response } = req.body; // response = 'accepted' or 'declined'
+
+  if (!['accepted', 'declined'].includes(response)) {
+    return res.status(400).json({ error: 'Invalid response' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Update invite status
+    const [inviteRows] = await connection.query(
+      'SELECT * FROM committee_invites WHERE id = ? AND professor_id = ?',
+      [inviteId, professorId]
+    );
+    if (inviteRows.length === 0) {
+      await connection.end();
+      return res.status(404).json({ error: 'Invite not found' });
+    }
+
+    const thesisId = inviteRows[0].thesis_id;
+
+    await connection.query(
+      'UPDATE committee_invites SET status = ? WHERE id = ?',
+      [response, inviteId]
+    );
+
+    // Count how many accepted
+    const [accepted] = await connection.query(
+      'SELECT COUNT(*) AS count FROM committee_invites WHERE thesis_id = ? AND status = "accepted"',
+      [thesisId]
+    );
+
+    if (accepted[0].count >= 2) {
+      // Update thesis status
+      await connection.query(
+        'UPDATE thesis SET status = "Under Review" WHERE id = ?', //active
+        [thesisId]
+      );
+
+      // Cancel other pending invites
+      await connection.query(
+        'UPDATE committee_invites SET status = "declined" WHERE thesis_id = ? AND status = "pending"',
+        [thesisId]
+      );
+    }
+
+    await connection.end();
+    res.json({ success: true, message: `Invite ${response}` });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to respond to invite' });
+  }
+});
+app.get('/api/professors', async (req, res) => {
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    const [rows] = await connection.query(
+      'SELECT id, username FROM users WHERE role = "professor"'
+    );
+    await connection.end();
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch professors' });
+  }
+});
+app.get('/api/my-invites', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [thesisRows] = await connection.query(
+      'SELECT id FROM thesis WHERE student_id = ?',
+      [req.session.user.id]
+    );
+    if (thesisRows.length === 0) {
+      await connection.end();
+      return res.status(404).json({ error: 'Thesis not found' });
+    }
+
+    const thesisId = thesisRows[0].id;
+
+    const [invites] = await connection.query(
+      `SELECT ci.id, u.username AS professor, ci.status
+       FROM committee_invites ci
+       JOIN users u ON ci.professor_id = u.id
+       WHERE ci.thesis_id = ?`,
+      [thesisId]
+    );
+
+    await connection.end();
+    res.json(invites);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load invites' });
+  }
+});
+app.get('/api/invites-for-me', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    const professorId = req.session.user.id;
+
+    const [invites] = await connection.query(`
+      SELECT ci.id AS inviteId, ci.status, t.title AS thesis_title, s.username AS student
+      FROM committee_invites ci
+      JOIN thesis t ON ci.thesis_id = t.id
+      JOIN users s ON t.student_id = s.id
+      WHERE ci.professor_id = ?
+    `, [professorId]);
+
+    await connection.end();
+    res.json(invites);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to load invitations' });
+  }
+});
 
 
 // Start the server

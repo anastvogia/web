@@ -97,7 +97,13 @@
         <div id="under-assignment">
           <h5>Under Assignment</h5>
           <p>Select committee members:</p>
-          <button class="btn btn-outline-warning btn-sm">Invite Instructor</button>
+          <span class="text-warning border border-warning px-2 py-1 rounded small">Invite Instructor</span>
+        </div>
+        <div class="mt-3">
+          <h6>Available Professors:</h6>
+          <ul id="professor-list" class="list-group mb-3"></ul>
+          <h6>Invited Professors:</h6>
+          <ul id="invite-list" class="list-group"></ul>
         </div>
 
         <div id="under-examination" class="mt-4">
@@ -119,31 +125,16 @@
 
   </div>
   <script>
-    // Check if the user is logged in and has the 'student' role
-    window.addEventListener('DOMContentLoaded', () => {
-      fetch('/api/check-session') // Send a request to check the session
-        .then(res => res.json())
-        .then(data => {
-          if (!data.loggedIn || data.role !== 'student') {
-            // If not logged in or incorrect role, redirect to login
-            window.location.href = '/login.html';
-          }
-        })
-        .catch(err => {
-          console.error('Error checking session:', err);
-          window.location.href = '/login.html'; // Redirect to login if there's an error
-        });
-    });
     window.addEventListener('DOMContentLoaded', async () => {
-      // Check session
-      const sessionRes = await fetch('/api/check-session');
-      const sessionData = await sessionRes.json();
-      if (!sessionData.loggedIn || sessionData.role !== 'student') {
-        return window.location.href = '/login.html';
-      }
-  
-      // Load current profile info
       try {
+        // Session check
+        const sessionRes = await fetch('/api/check-session');
+        const sessionData = await sessionRes.json();
+        if (!sessionData.loggedIn || sessionData.role !== 'student') {
+          return window.location.href = '/login.html';
+        }
+  
+        // Load profile info
         const profileRes = await fetch('/api/get-profile');
         const profile = await profileRes.json();
   
@@ -151,36 +142,116 @@
         document.getElementById('email').value = profile.email || '';
         document.getElementById('mobile_phone').value = profile.mobile_phone || '';
         document.getElementById('landline').value = profile.landline || '';
-      } catch (err) {
-        console.error('Failed to load profile:', err);
-      }
   
-      // Handle form submission
-      document.getElementById('profile-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
+        document.getElementById('profile-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
   
-        const full_address = document.getElementById('full_address').value;
-        const email = document.getElementById('email').value;
-        const mobile_phone = document.getElementById('mobile_phone').value;
-        const landline = document.getElementById('landline').value;
+          const full_address = document.getElementById('full_address').value;
+          const email = document.getElementById('email').value;
+          const mobile_phone = document.getElementById('mobile_phone').value;
+          const landline = document.getElementById('landline').value;
   
-        const res = await fetch('/api/update-profile', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ full_address, email, mobile_phone, landline })
+          const res = await fetch('/api/update-profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ full_address, email, mobile_phone, landline })
+          });
+  
+          const result = await res.json();
+          if (result.success) {
+            alert('Profile updated successfully!');
+          } else {
+            alert('Failed to update profile.');
+          }
         });
   
-        const result = await res.json();
-        if (result.success) {
-          alert('Profile updated successfully!');
-        } else {
-          alert('Failed to update profile.');
+        // Get current thesis
+        const thesisRes = await fetch('/api/student-thesis');
+        const thesis = await thesisRes.json();
+  
+        // Show only the correct section
+        document.getElementById('under-assignment').style.display = 'none';
+        document.getElementById('under-examination').style.display = 'none';
+        document.getElementById('completed').style.display = 'none';
+  
+        if (thesis.status === 'Active') {
+          document.getElementById('under-assignment').style.display = 'block';
+        } else if (thesis.status === 'Under Review') {
+          document.getElementById('under-examination').style.display = 'block';
+        } else if (thesis.status === 'Completed') {
+          document.getElementById('completed').style.display = 'block';
         }
-      });
+  
+        // Inject basic thesis info
+        document.getElementById('thesis-title').textContent = thesis.title;
+        document.getElementById('thesis-status').textContent = thesis.status;
+        document.getElementById('thesis-assigned-date').textContent = thesis.assigned_date;
+        document.getElementById('thesis-description').textContent = thesis.description;
+        document.getElementById('thesis-download').href = '/thesis/' + thesis.file_path;
+        document.getElementById('thesis-committee').textContent = thesis.committee_names || 'Pending';
+  
+        // Handle committee invite logic
+        if (thesis.status === 'Active') { //UnderExamination
+          // Load professors
+          fetch('/api/professors')
+            .then(res => res.json())
+            .then(professors => {
+              const list = document.getElementById('professor-list');
+              list.innerHTML = '';
+              professors.forEach(prof => {
+                const li = document.createElement('li');
+                li.className = 'list-group-item d-flex justify-content-between align-items-center';
+                li.textContent = prof.username;
+  
+                const inviteBtn = document.createElement('button');
+                inviteBtn.textContent = 'Invite';
+                inviteBtn.className = 'btn btn-sm btn-outline-primary';
+                inviteBtn.onclick = async () => {
+                  const res = await fetch('/api/invite-professor', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ professorId: prof.id })
+                  });
+
+                  const data = await res.json();
+                  alert(data.message);
+                  if (data.success) {
+                    li.remove(); 
+                    loadInvites(); 
+                  }
+                };
+
+                li.appendChild(inviteBtn);
+                list.appendChild(li);
+              });
+            });
+  
+          // Load invited professors
+          function loadInvites() {
+            fetch('/api/my-invites')
+              .then(res => res.json())
+              .then(invites => {
+                const inviteList = document.getElementById('invite-list');
+                inviteList.innerHTML = '';
+                invites.forEach(inv => {
+                  const li = document.createElement('li');
+                  li.className = 'list-group-item';
+                  li.textContent = `${inv.professor} - ${inv.status}`;
+                  inviteList.appendChild(li);
+                });
+              });
+          }
+  
+          loadInvites();
+        }
+  
+      } catch (err) {
+        console.error('Something went wrong:', err);
+        window.location.href = '/login.html';
+      }
     });
   </script>
+  
   <script src="main.js"></script>
 </body>
 </html>
