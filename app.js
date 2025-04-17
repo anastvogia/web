@@ -5,18 +5,10 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const app = express();
+const dbConfig = require('./dbconfig'); // Assuming dbConfig.js exports your database configuration
 const PORT = 3000;
 // const dbConfig = require('./dbconfig'); // Assuming dbConfig.js exports your database configuration
 
-
- // MySQL configuration
- const dbConfig = {
-  port:'3307',
-  host: 'localhost',
-  user: 'root',
-  password: 'aggelos2004!',
-  database: 'web'
-};
 // Middleware to parse JSON request bodies
 app.use(express.json());
 
