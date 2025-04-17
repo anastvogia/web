@@ -65,22 +65,22 @@
         Edit Profile
       </div>
       <div class="card-body">
-        <form>
+        <form id="profile-form">
           <div class="mb-2">
             <label class="form-label">Full Address</label>
-            <input type="text" class="form-control" placeholder="123 Main St, City, Country">
+            <input type="text" class="form-control" id="full_address" placeholder="123 Main St, City, Country">
           </div>
           <div class="mb-2">
             <label class="form-label">Email</label>
-            <input type="email" class="form-control" placeholder="student@example.com">
+            <input type="email" class="form-control" id="email" placeholder="student@example.com">
           </div>
           <div class="mb-2">
             <label class="form-label">Mobile Phone</label>
-            <input type="text" class="form-control" placeholder="+1234567890">
+            <input type="text" class="form-control" id="mobile_phone" placeholder="+1234567890">
           </div>
           <div class="mb-2">
             <label class="form-label">Landline</label>
-            <input type="text" class="form-control" placeholder="+0987654321">
+            <input type="text" class="form-control" id="landline" placeholder="+0987654321">
           </div>
           <button type="submit" class="btn btn-success">Save Changes</button>
         </form>
@@ -133,6 +133,52 @@
           console.error('Error checking session:', err);
           window.location.href = '/login.html'; // Redirect to login if there's an error
         });
+    });
+    window.addEventListener('DOMContentLoaded', async () => {
+      // Check session
+      const sessionRes = await fetch('/api/check-session');
+      const sessionData = await sessionRes.json();
+      if (!sessionData.loggedIn || sessionData.role !== 'student') {
+        return window.location.href = '/login.html';
+      }
+  
+      // Load current profile info
+      try {
+        const profileRes = await fetch('/api/get-profile');
+        const profile = await profileRes.json();
+  
+        document.getElementById('full_address').value = profile.full_address || '';
+        document.getElementById('email').value = profile.email || '';
+        document.getElementById('mobile_phone').value = profile.mobile_phone || '';
+        document.getElementById('landline').value = profile.landline || '';
+      } catch (err) {
+        console.error('Failed to load profile:', err);
+      }
+  
+      // Handle form submission
+      document.getElementById('profile-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+  
+        const full_address = document.getElementById('full_address').value;
+        const email = document.getElementById('email').value;
+        const mobile_phone = document.getElementById('mobile_phone').value;
+        const landline = document.getElementById('landline').value;
+  
+        const res = await fetch('/api/update-profile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ full_address, email, mobile_phone, landline })
+        });
+  
+        const result = await res.json();
+        if (result.success) {
+          alert('Profile updated successfully!');
+        } else {
+          alert('Failed to update profile.');
+        }
+      });
     });
   </script>
   <script src="main.js"></script>

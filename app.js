@@ -12,8 +12,9 @@ app.use(express.json());
 // MySQL configuration
 const dbConfig = {
   host: 'localhost',
+  port: '3307',
   user: 'root',
-  password: '12345',
+  password: 'aggelos2004!',
   database: 'web'
 };
 
@@ -201,6 +202,56 @@ app.get('/api/student-thesis', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch thesis' });
   }
 });
+
+// API to get current user's profile info
+app.get('/api/get-profile', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Not logged in' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    const [rows] = await connection.query(
+      'SELECT full_address, email, mobile_phone, landline FROM users WHERE id = ?',
+      [req.session.user.id]
+    );
+    await connection.end();
+
+    if (rows.length === 1) {
+      res.json(rows[0]);
+    } else {
+      res.status(404).json({ error: 'User not found' });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Database error' });
+  }
+});
+
+// API to update current user's profile
+app.post('/api/update-profile', async (req, res) => {
+  if (!req.session.user) {
+    return res.status(401).json({ error: 'Not logged in' });
+  }
+
+  const { full_address, email, mobile_phone, landline } = req.body;
+  const userId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    await connection.query(
+      'UPDATE users SET full_address = ?, email = ?, mobile_phone = ?, landline = ? WHERE id = ?',
+      [full_address, email, mobile_phone, landline, userId]
+    );
+    await connection.end();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to update profile' });
+  }
+});
+
+
 
 
 // Start the server
