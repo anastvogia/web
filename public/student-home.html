@@ -146,14 +146,10 @@
               <button type="submit" class="btn btn-sm btn-outline-secondary">Save Nemertis Link</button>
             </form>
 
-            <div id="saved-links" class="mt-2"></div>
             
           </div>
-          <!-- <button class="btn btn-outline-secondary btn-sm">Upload Draft Thesis</button>
-          <button class="btn btn-outline-secondary btn-sm">Add Additional Material</button>
-          <button class="btn btn-outline-secondary btn-sm">Set Examination Details</button> -->
+
            <a href="/api/exam-report" target="_blank" class="btn btn-outline-secondary btn-sm mb-2">View Exam Report</a> 
-          <!-- <button class="btn btn-outline-secondary btn-sm">Add Nemertis Link</button> -->
         </div>
 
         <div id="completed" class="mt-4">
@@ -236,21 +232,6 @@
             document.getElementById('draft-frame').src = thesis.draft_file_path;
           }
 
-          // Load existing additional links
-          if (thesis.additional_links) {
-            document.getElementById('additional_links').value = thesis.additional_links;
-
-            const linkBox = document.getElementById('saved-links');
-            const links = thesis.additional_links.split('\n').filter(line => line.trim() !== '');
-            links.forEach(link => {
-              const a = document.createElement('a');
-              a.href = link;
-              a.target = '_blank';
-              a.textContent = link;
-              a.className = 'd-block small text-primary';
-              linkBox.appendChild(a);
-            });
-          }
         }
 
   
@@ -373,21 +354,6 @@ document.getElementById('nemertis-form')?.addEventListener('submit', async (e) =
   alert(result.success ? 'Nemertis link saved!' : 'Failed to save link.');
 });
 
-// Load existing links
-if (thesis.additional_links) {
-  document.getElementById('additional_links').value = thesis.additional_links;
-
-  const linkBox = document.getElementById('saved-links');
-  const links = thesis.additional_links.split('\n').filter(line => line.trim() !== '');
-  links.forEach(link => {
-    const a = document.createElement('a');
-    a.href = link;
-    a.target = '_blank';
-    a.textContent = link;
-    a.className = 'd-block small text-primary';
-    linkBox.appendChild(a);
-  });
-}
 document.getElementById('links-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const links = document.getElementById('additional_links').value;
