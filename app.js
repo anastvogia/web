@@ -337,6 +337,64 @@ app.get('/api/exam-report', async (req, res) => {
 });
 
 
+app.get('/api/completed-thesis', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'student') {
+    return res.status(403).send('Unauthorized');
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Get thesis
+    const [thesisRows] = await connection.query(`
+      SELECT id, title, description, assigned_date, days_since_assignment
+      FROM thesis
+      WHERE student_id = ?
+    `, [req.session.user.id]);
+
+    if (thesisRows.length === 0) {
+      await connection.end();
+      return res.status(404).send('No report found');
+    }
+
+    const thesis = thesisRows[0];
+
+    ;// Get real committee members (accepted only)
+    const [committeeRows] = await connection.query(`
+      SELECT u.username
+      FROM committee_invites ci
+      JOIN users u ON ci.professor_id = u.id
+      WHERE ci.thesis_id = ? AND ci.status = 'accepted'
+    `, [thesis.id])
+
+    const committeeList = committeeRows.map(member => member.username).join(', ') || 'Pending';
+
+    await connection.end();
+
+    const html = `
+      <html>
+        <head><title>Thesis Details</title></head>
+        <body style="font-family: sans-serif; padding: 20px;">
+          <h2>Thesis Title: ${thesis.title}</h2>
+          <p><strong>Committee:</strong> ${committeeList}</p>
+          <p><strong>Description:</strong> ${thesis.description}</p>
+          <p><strong>Assigned date:</strong> ${thesis.assigned_date}</p>
+          <p><strong>Days Since Assignment:</strong> ${thesis.days_since_assignment}</p>
+        </body>
+      </html>
+    `;
+
+    res.send(html);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send('Server error');
+  }
+});
+
+
+
+
+
 // API to check if user is logged in and return their role
 // Check current session (used by navbar)
 app.get('/api/check-session', (req, res) => {
