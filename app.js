@@ -317,16 +317,52 @@ app.get('/api/exam-report', async (req, res) => {
     await connection.end();
 
     const html = `
-      <html>
-        <head><title>Exam Report</title></head>
-        <body style="font-family: sans-serif; padding: 20px;">
-          <h2>Exam Report: ${thesis.title}</h2>
-          <p><strong>Committee:</strong> ${committeeList}</p>
-          <p><strong>Exam Date:</strong> ${new Date(thesis.exam_date).toLocaleString()}</p>
-          <p><strong>Location:</strong> ${thesis.exam_location}</p>
-          <p><strong>Nemertis Link:</strong> <a href="${thesis.nemertis_link}" target="_blank">${thesis.nemertis_link}</a></p>
-        </body>
-      </html>
+      <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Exam Report</title>
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body class="bg-light">
+    <div class="container py-5">
+      <div class="row justify-content-center">
+        <div class="col-12 col-md-10 col-lg-8">
+          <div class="card shadow-sm">
+            <div class="card-header bg-success text-white">
+              <h2 class="h4 mb-0">Exam Report</h2>
+            </div>
+            <div class="card-body">
+              <h4 class="card-title mb-3">Title: ${thesis.title}</h4>
+              <p class="mb-2">
+                <strong>Committee:</strong> ${committeeList}
+              </p>
+              <p class="mb-2">
+                <strong>Exam Date:</strong> ${new Date(thesis.exam_date).toLocaleString()}
+              </p>
+              <p class="mb-2">
+                <strong>Location:</strong> ${thesis.exam_location}
+              </p>
+              <p class="mb-0">
+                <strong>Nemertis Link:</strong>
+                <a href="${thesis.nemertis_link}" target="_blank">${thesis.nemertis_link}</a>
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS (optional) -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    ></script>
+  </body>
+</html>
     `;
 
     res.send(html);
@@ -372,16 +408,51 @@ app.get('/api/completed-thesis', async (req, res) => {
     await connection.end();
 
     const html = `
-      <html>
-        <head><title>Thesis Details</title></head>
-        <body style="font-family: sans-serif; padding: 20px;">
-          <h2>Thesis Title: ${thesis.title}</h2>
-          <p><strong>Committee:</strong> ${committeeList}</p>
-          <p><strong>Description:</strong> ${thesis.description}</p>
-          <p><strong>Assigned date:</strong> ${thesis.assigned_date}</p>
-          <p><strong>Days Since Assignment:</strong> ${thesis.days_since_assignment}</p>
-        </body>
-      </html>
+      <html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Thesis Details</title>
+    <!-- Bootstrap CSS -->
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+  </head>
+  <body class="bg-light">
+    <div class="container py-5">
+      <div class="row justify-content-center">
+        <div class="col-12 col-md-10 col-lg-8">
+          <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white">
+              <h2 class="h4 mb-0">Thesis Details</h2>
+            </div>
+            <div class="card-body">
+              <h4 class="card-title mb-3">Title: ${thesis.title}</h4>
+              <p class="mb-2">
+                <strong>Committee:</strong> ${committeeList}
+              </p>
+              <p class="mb-2">
+                <strong>Description:</strong> ${thesis.description}
+              </p>
+              <p class="mb-2">
+                <strong>Assigned Date:</strong> ${thesis.assigned_date}
+              </p>
+              <p class="mb-0">
+                <strong>Days Since Assignment:</strong> ${thesis.days_since_assignment}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bootstrap JS (optional) -->
+    <script
+      src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
+    ></script>
+  </body>
+</html>
     `;
 
     res.send(html);
