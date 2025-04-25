@@ -923,6 +923,27 @@ app.post('/api/register-protocol', async (req, res) => {
   }
 });
 
+app.get('/api/secretariat-current-thesis', async (req, res) => {
+  const connection = await mysql.createConnection(dbConfig);
+  const [rows] = await connection.query('SELECT * FROM thesis WHERE status = "under_review" LIMIT 1');
+  await connection.end();
+
+  if (rows.length === 0) {
+    return res.status(404).json({ error: 'No under review thesis' });
+  }
+
+  res.json(rows[0]);
+});
+
+app.post('/api/mark-completed', async (req, res) => {
+  const { thesisId } = req.body;
+  const connection = await mysql.createConnection(dbConfig);
+  await connection.query('UPDATE thesis SET status = ? WHERE id = ?', ['completed', thesisId]);
+  await connection.end();
+  res.json({ success: true });
+});
+
+
 
 // Start the server
 app.listen(PORT, () => {
