@@ -55,6 +55,7 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     }
     
+    
     if (path === '/student-home.html') {
       fetch('/api/student-thesis')
         .then(res => {
