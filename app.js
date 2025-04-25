@@ -242,19 +242,35 @@ app.get('/api/thesis/:id', async (req, res) => {
 
   try {
     const connection = await mysql.createConnection(dbConfig);
+
     const [rows] = await connection.query('SELECT * FROM thesis WHERE id = ?', [thesisId]);
-    await connection.end();
 
     if (rows.length > 0) {
-      res.json(rows[0]); // Return the single entry
+      const thesis = rows[0];
+
+      const [committee] = await connection.query(
+        `SELECT u.username 
+         FROM committee_invites ci
+         JOIN users u ON ci.professor_id = u.id
+         WHERE ci.thesis_id = ? AND ci.status = 'accepted'`,
+        [thesisId]
+      );
+
+      // Add the committee usernames to the thesis object
+      thesis.committee_names = committee.map(c => c.username).join(', ') || null;
+
+      res.json(thesis);
     } else {
       res.status(404).json({ error: 'Thesis not found' });
     }
+
+    await connection.end();
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Database error' });
   }
 });
+
 
 app.post('/api/set-links', async (req, res) => {
   if (!req.session.user || req.session.user.role !== 'student') {
