@@ -91,4 +91,30 @@ window.addEventListener('DOMContentLoaded', () => {
           console.error('Failed to load student thesis:', err);
         });
     }    
+
+    document.getElementById('protocol-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+    
+      const thesisId = document.getElementById('thesis_id').value;
+      const protocolNumber = document.getElementById('protocol_number').value;
+      const assemblyDate = document.getElementById('assembly_date').value;
+    
+      try {
+        const res = await fetch('/api/register-protocol', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ thesisId, protocolNumber, assemblyDate })
+        });
+    
+        const result = await res.json();
+        alert(result.success ? 'Protocol registered successfully!' : 'Failed to register protocol.');
+      } catch (err) {
+        console.error('Error registering protocol:', err);
+        alert('An error occurred while registering the protocol.');
+      }
+    });
+
+
+
+
   });

@@ -399,7 +399,7 @@ app.get('/api/completed-thesis', async (req, res) => {
 
     // Get thesis
     const [thesisRows] = await connection.query(`
-      SELECT id, title, description, assigned_date, days_since_assignment
+      SELECT id, title, description, assigned_date, days_since_assignment, protocol_number
       FROM thesis
       WHERE student_id = ?
     `, [req.session.user.id]);
@@ -411,7 +411,6 @@ app.get('/api/completed-thesis', async (req, res) => {
 
     const thesis = thesisRows[0];
 
-    // Get real committee members (accepted only)
     const [committeeRows] = await connection.query(`
       SELECT u.username
       FROM committee_invites ci
@@ -421,7 +420,6 @@ app.get('/api/completed-thesis', async (req, res) => {
 
     const committeeList = committeeRows.map(member => member.username).join(', ') || 'Pending';
 
-    // ✅ NEW: Get status change history
     const [historyRows] = await connection.query(`
       SELECT old_status, new_status, DATE_FORMAT(changed_at, '%Y-%m-%d %H:%i') AS changed_at
       FROM thesis_status_history
@@ -463,8 +461,11 @@ app.get('/api/completed-thesis', async (req, res) => {
               <p class="mb-2">
                 <strong>Assigned Date:</strong> ${thesis.assigned_date}
               </p>
+              <p class="mb-2">
+                <strong>Days Since Assignment:</strong> ${thesis.days_since_assignment} 
+              </p>
               <p class="mb-0">
-                <strong>Days Since Assignment:</strong> ${thesis.days_since_assignment}
+                <strong>Protocol Number:</strong> ${thesis.protocol_number}
               </p>
             </div>
           </div>
@@ -891,39 +892,36 @@ app.get('/api/thesis/:id/history', async (req, res) => {
   }
 });
 
-app.post('/api/cancel-thesis', async (req, res) => {
-  if (!req.session.user || req.session.user.role !== 'secretariat') {
-    return res.status(403).json({ error: 'Unauthorized' });
-  }
+app.post('/api/register-protocol', async (req, res) => {
+  const { thesisId, protocolNumber, assemblyDate } = req.body;
 
-  const { thesisId, reason, assemblyNumber, assemblyYear } = req.body;
+  if (!thesisId || !protocolNumber || !assemblyDate) {
+    return res.status(400).json({ success: false, message: 'Missing required fields.' });
+  }
 
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    const [result] = await connection.query(`
+    // Ενημέρωση της διπλωματικής εργασίας με τον ΑΠ και την ημερομηνία
+    const query = `
       UPDATE thesis
-      SET status = 'cancelled',
-          cancellation_reason = ?,
-          assembly_number = ?,
-          assembly_year = ?
+      SET protocol_number = ?, assembly_date = ?
       WHERE id = ?
-    `, [reason, assemblyNumber, assemblyYear, thesisId]);
+    `;
+    const [result] = await connection.execute(query, [protocolNumber, assemblyDate, thesisId]);
 
     await connection.end();
 
     if (result.affectedRows === 0) {
-      console.warn('[Cancel Thesis] No thesis found with ID:', thesisId);
-      return res.json({ success: false, message: 'No matching thesis found' });
+      return res.status(404).json({ success: false, message: 'Thesis not found.' });
     }
 
-    res.json({ success: true });
-  } catch (err) {
-    console.error('[Cancel Thesis Error]', err);
-    res.status(500).json({ success: false, message: 'Server error' });
+    res.status(200).json({ success: true, message: 'Protocol registered successfully.' });
+  } catch (error) {
+    console.error('Error registering protocol:', error);
+    res.status(500).json({ success: false, message: 'Failed to register protocol.' });
   }
 });
-
 
 
 // Start the server
