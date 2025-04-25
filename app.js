@@ -395,20 +395,28 @@ app.get('/api/completed-thesis', async (req, res) => {
 
     const thesis = thesisRows[0];
 
-    ;// Get real committee members (accepted only)
+    // Get real committee members (accepted only)
     const [committeeRows] = await connection.query(`
       SELECT u.username
       FROM committee_invites ci
       JOIN users u ON ci.professor_id = u.id
       WHERE ci.thesis_id = ? AND ci.status = 'accepted'
-    `, [thesis.id])
+    `, [thesis.id]);
 
     const committeeList = committeeRows.map(member => member.username).join(', ') || 'Pending';
+
+    // ✅ NEW: Get status change history
+    const [historyRows] = await connection.query(`
+      SELECT old_status, new_status, DATE_FORMAT(changed_at, '%Y-%m-%d %H:%i') AS changed_at
+      FROM thesis_status_history
+      WHERE thesis_id = ?
+      ORDER BY changed_at ASC
+    `, [thesis.id]);
 
     await connection.end();
 
     const html = `
-      <html lang="en">
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <title>Thesis Details</title>
@@ -423,7 +431,8 @@ app.get('/api/completed-thesis', async (req, res) => {
     <div class="container py-5">
       <div class="row justify-content-center">
         <div class="col-12 col-md-10 col-lg-8">
-          <div class="card shadow-sm">
+          <!-- Thesis Details Card -->
+          <div class="card shadow-sm mb-4">
             <div class="card-header bg-primary text-white">
               <h2 class="h4 mb-0">Thesis Details</h2>
             </div>
@@ -443,11 +452,41 @@ app.get('/api/completed-thesis', async (req, res) => {
               </p>
             </div>
           </div>
+
+          <!-- Status History Card -->
+          <div class="card shadow-sm">
+            <div class="card-header bg-dark text-white">
+              <h2 class="h5 mb-0">Status Change History</h2>
+            </div>
+            <div class="card-body p-0">
+              <div class="table-responsive">
+                <table class="table table-striped table-bordered mb-0">
+                  <thead class="table-secondary">
+                    <tr>
+                      <th>From</th>
+                      <th>To</th>
+                      <th>Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${historyRows.map(row => `
+                      <tr>
+                        <td>${row.old_status}</td>
+                        <td>${row.new_status}</td>
+                        <td>${row.changed_at}</td>
+                      </tr>
+                    `).join('')}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
 
-    <!-- Bootstrap JS (optional) -->
+    <!-- Bootstrap JS -->
     <script
       src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"
     ></script>
@@ -456,11 +495,13 @@ app.get('/api/completed-thesis', async (req, res) => {
     `;
 
     res.send(html);
+
   } catch (err) {
-    console.error(err);
+    console.error('[Completed Thesis Error]', err);
     res.status(500).send('Server error');
   }
 });
+
 
 
 
@@ -787,6 +828,50 @@ app.post('/api/set-nemertis-link', async (req, res) => {
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to save link' });
+  }
+});
+
+async function updateThesisStatus(thesisId, newStatus) {
+  const connection = await mysql.createConnection(dbConfig);
+
+  // Get old status
+  const [[row]] = await connection.query(
+    'SELECT status FROM thesis WHERE id = ?', [thesisId]
+  );
+  const oldStatus = row.status;
+
+  // Update thesis status
+  await connection.query(
+    'UPDATE thesis SET status = ? WHERE id = ?',
+    [newStatus, thesisId]
+  );
+
+  // Insert status change history
+  await connection.query(
+    'INSERT INTO thesis_status_history (thesis_id, old_status, new_status) VALUES (?, ?, ?)',
+    [thesisId, oldStatus, newStatus]
+  );
+
+  await connection.end();
+}
+
+app.get('/api/thesis/:id/history', async (req, res) => {
+  const thesisId = req.params.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    const [rows] = await connection.query(`
+      SELECT old_status, new_status, DATE_FORMAT(changed_at, '%Y-%m-%d %H:%i') as changed_at
+      FROM thesis_status_history
+      WHERE thesis_id = ?
+      ORDER BY changed_at ASC
+    `, [thesisId]);
+
+    await connection.end();
+    res.json(rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to fetch history' });
   }
 });
 
