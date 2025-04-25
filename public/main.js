@@ -44,6 +44,10 @@ window.addEventListener('DOMContentLoaded', () => {
             document.getElementById('thesis-assigned-date').textContent = entry.assigned_date.slice(0, -14);
             document.getElementById('thesis-description').textContent = entry.description;
             document.getElementById('thesis-committee').textContent = entry.committee_names || 'pending';
+
+            if (typeof entry.status !== 'undefined' && entry.status === 'active') {
+              document.getElementById('conditional-forms').classList.remove('d-none');
+            }
           })
           .catch(err => {
             console.error('Failed to load thesis:', err);
