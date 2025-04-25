@@ -891,6 +891,39 @@ app.get('/api/thesis/:id/history', async (req, res) => {
   }
 });
 
+app.post('/api/cancel-thesis', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'secretariat') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const { thesisId, reason, assemblyNumber, assemblyYear } = req.body;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [result] = await connection.query(`
+      UPDATE thesis
+      SET status = 'cancelled',
+          cancellation_reason = ?,
+          assembly_number = ?,
+          assembly_year = ?
+      WHERE id = ?
+    `, [reason, assemblyNumber, assemblyYear, thesisId]);
+
+    await connection.end();
+
+    if (result.affectedRows === 0) {
+      console.warn('[Cancel Thesis] No thesis found with ID:', thesisId);
+      return res.json({ success: false, message: 'No matching thesis found' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Cancel Thesis Error]', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 
 
 // Start the server
