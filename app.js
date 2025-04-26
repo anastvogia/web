@@ -1312,6 +1312,53 @@ app.get('/api/professor-my-thesis-invites', async (req, res) => {
   }
 });
 
+app.get('/api/professor-theses-filtered', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
+
+  const { status, role } = req.query; // Get filters from query string
+  const professorId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    let query = `
+      SELECT t.id, t.title, t.description, t.status, 
+             CASE 
+               WHEN t.professor_id = ? THEN 'Supervisor'
+               WHEN ci.professor_id = ? THEN 'Committee Member'
+               ELSE 'Unknown'
+             END AS role
+      FROM thesis t
+      LEFT JOIN committee_invites ci ON t.id = ci.thesis_id
+      WHERE (t.professor_id = ? OR ci.professor_id = ?)
+    `;
+    const params = [professorId, professorId, professorId, professorId];
+
+    // Add status filter if provided
+    if (status) {
+      query += ' AND t.status = ?';
+      params.push(status);
+    }
+
+    // Add role filter if provided
+    if (role) {
+      query += ' HAVING role = ?';
+      params.push(role);
+    }
+
+    query += ' ORDER BY t.assigned_date DESC';
+
+    const [rows] = await connection.query(query, params);
+    await connection.end();
+
+    res.json({ success: true, theses: rows });
+  } catch (error) {
+    console.error('Error fetching filtered theses:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch theses.' });
+  }
+});
 
 // Start the server
 app.listen(PORT, () => {
