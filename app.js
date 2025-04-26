@@ -163,6 +163,11 @@ app.get('/secretariat-home.html', isAuthenticated('secretariat'), (req, res) => 
   res.sendFile(path.join(__dirname, 'public', 'secretariat-home.html'));
 });
 
+// Serve professor-home.html only if the user is logged in and has 'professor' role
+app.get('/professor-home.html', isAuthenticated('professor'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'professor-home.html'));
+});
+
 app.get('/login.html', (req, res) => {
   if (req.session.user) {
     if (req.session.user.role === 'student') {
@@ -664,7 +669,10 @@ app.post('/api/respond-invite', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 
-  const professorId = req.session.user.id;
+  const professorId = req.session.user ? req.session.user.id : null;
+  if (!professorId) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
   const { inviteId, response } = req.body; // response = 'accepted' or 'declined'
 
   if (!['accepted', 'declined'].includes(response)) {
@@ -931,7 +939,215 @@ app.post('/api/mark-completed', async (req, res) => {
   await connection.end();
   res.json({ success: true });
 });
+app.get('/api/students', async (req, res) => {
+  const { search } = req.query;
 
+  if (!search) {
+    return res.status(400).json({ error: 'Search term required' });
+  }
+
+  const connection = await mysql.createConnection(dbConfig);
+
+  const [students] = await connection.query(`
+    SELECT id, username
+    FROM users
+    WHERE role = 'student'
+      AND (username LIKE ? OR id LIKE ?)
+  `, [`%${search}%`, `%${search}%`]);
+
+  await connection.end();
+
+  res.json(students);
+});
+app.post('/api/assign-thesis', async (req, res) => {
+  const { studentId, title, description } = req.body;
+
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const professorId = req.session.user.id;
+
+  const connection = await mysql.createConnection(dbConfig);
+
+  await connection.query(`
+    INSERT INTO thesis (title, description, student_id, assigned_professor_id, status)
+    VALUES (?, ?, ?, ?, 'under_assignment')
+  `, [title, description, studentId, professorId]);
+
+  await connection.end();
+
+  res.json({ success: true, message: 'Thesis assigned temporarily.' });
+});
+app.post('/api/cancel-assignment', async (req, res) => {
+  const { thesisId } = req.body;
+
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const professorId = req.session.user.id;
+
+  const connection = await mysql.createConnection(dbConfig);
+
+  const [rows] = await connection.query(`
+    SELECT * FROM thesis
+    WHERE id = ? AND assigned_professor_id = ? AND status = 'under_assignment'
+  `, [thesisId, professorId]);
+
+  if (rows.length === 0) {
+    await connection.end();
+    return res.status(400).json({ error: 'Cannot cancel this thesis' });
+  }
+
+  await connection.query(`DELETE FROM thesis WHERE id = ?`, [thesisId]);
+
+  await connection.end();
+
+  res.json({ success: true, message: 'Assignment canceled.' });
+});
+
+app.get('/api/available-theses', async (req, res) => {
+  const connection = await mysql.createConnection(dbConfig);
+
+  const professorId = req.session.user.id;
+  console.log('Professor ID:', professorId);
+  const [rows] = await connection.query(`
+    SELECT id, title
+    FROM thesis
+    WHERE status IS NULL and professor_id = ?
+  `, [professorId]);
+
+  await connection.end();
+  res.json(rows);
+});
+
+app.get('/api/students-without-thesis', async (req, res) => {
+  const connection = await mysql.createConnection(dbConfig);
+
+  const [rows] = await connection.query(`
+    SELECT id, username
+    FROM users
+    WHERE role = 'student'
+      AND id NOT IN (SELECT student_id FROM thesis WHERE student_id IS NOT NULL)
+  `);
+
+  await connection.end();
+  res.json(rows);
+});
+
+app.post('/api/assign-thesis-to-student', async (req, res) => {
+  const { thesisId, studentId } = req.body;
+
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [result] = await connection.query(`
+      UPDATE thesis
+      SET student_id = ?, status = 'under_assignment', professor_id = ?
+      WHERE id = ? AND status IS NULL
+    `, [studentId, req.session.user.id, thesisId]);
+
+    await connection.end();
+
+    if (result.affectedRows === 0) {
+      return res.json({ success: false, message: 'Thesis already assigned or not available.' });
+    }
+
+    res.json({ success: true, message: 'Thesis successfully assigned.' });
+
+  } catch (error) {
+    console.error('[Assign Thesis Error]', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+app.get('/api/professor-under-assignment', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [rows] = await connection.query(`
+      SELECT t.id AS thesis_id, t.title, u.username AS student_username
+      FROM thesis t
+      JOIN users u ON t.student_id = u.id
+      WHERE t.professor_id = ? AND t.status = 'under_assignment'
+    `, [req.session.user.id]);
+
+    await connection.end();
+    res.json(rows);
+  } catch (err) {
+    console.error('[Professor Assignments Error]', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+// Only show theses the professor assigned
+app.get('/api/professor-assigned-theses', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [rows] = await connection.query(`
+      SELECT t.id AS thesis_id, t.title, u.username AS student_username
+      FROM thesis t
+      JOIN users u ON t.student_id = u.id
+      WHERE t.professor_id = ? AND t.status = 'under_assignment'
+    `, [req.session.user.id]);
+
+    await connection.end();
+    res.json(rows);
+  } catch (err) {
+    console.error('[Professor Assigned Theses Error]', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+app.post('/api/professor-cancel-assignment', async (req, res) => {
+  const { thesisId } = req.body;
+
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Check if the thesis belongs to this professor and is under_assignment
+    const [rows] = await connection.query(`
+      SELECT * FROM thesis
+      WHERE id = ? AND professor_id = ? AND status = 'under_assignment'
+    `, [thesisId, req.session.user.id]);
+
+    if (rows.length === 0) {
+      await connection.end();
+      return res.json({ success: false, message: 'Cannot cancel: not found or unauthorized.' });
+    }
+
+    // Update thesis to remove assignment
+    await connection.query(`
+      UPDATE thesis
+      SET student_id = NULL,
+          status = NULL
+      WHERE id = ?
+    `, [thesisId]);
+
+    await connection.end();
+    res.json({ success: true, message: 'Assignment cancelled successfully.' });
+
+  } catch (err) {
+    console.error('[Cancel Assignment Error]', err);  // 👈 THIS is the real error you must send me
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
 
 
 const upload = multer({
