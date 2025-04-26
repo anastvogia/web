@@ -1324,7 +1324,7 @@ app.get('/api/professor-theses-filtered', async (req, res) => {
     const connection = await mysql.createConnection(dbConfig);
 
     let query = `
-      SELECT t.id, t.title, t.description, t.status, 
+      SELECT DISTINCT t.id, t.title, t.description, t.status, t.assigned_date,
              CASE 
                WHEN t.professor_id = ? THEN 'Supervisor'
                WHEN ci.professor_id = ? THEN 'Committee Member'
@@ -1357,6 +1357,89 @@ app.get('/api/professor-theses-filtered', async (req, res) => {
   } catch (error) {
     console.error('Error fetching filtered theses:', error);
     res.status(500).json({ success: false, message: 'Failed to fetch theses.' });
+  }
+});
+
+app.post('/api/thesis/:id/add-comment', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const { id: thesisId } = req.params;
+  const { comment } = req.body;
+  const professorId = req.session.user.id;
+
+  if (!comment || comment.length > 300) {
+    return res.status(400).json({ error: 'Comment is required and must be up to 300 characters.' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Check if the professor is associated with the thesis
+    const [rows] = await connection.query(`
+      SELECT * FROM thesis
+      WHERE id = ? AND (professor_id = ? OR id IN (
+        SELECT thesis_id FROM committee_invites WHERE professor_id = ? AND status = 'accepted'
+      ))
+    `, [thesisId, professorId, professorId]);
+
+    if (rows.length === 0) {
+      await connection.end();
+      return res.status(403).json({ error: 'You are not authorized to comment on this thesis.' });
+    }
+
+    // Insert the comment
+    await connection.query(`
+      INSERT INTO professor_comments (thesis_id, professor_id, comment)
+      VALUES (?, ?, ?)
+    `, [thesisId, professorId, comment]);
+
+    await connection.end();
+    res.json({ success: true, message: 'Comment added successfully.' });
+  } catch (err) {
+    console.error('Error adding comment:', err);
+    res.status(500).json({ error: 'Failed to add comment.' });
+  }
+});
+
+app.get('/api/thesis/:id/comments', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const { id: thesisId } = req.params;
+  const professorId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Check if the professor is associated with the thesis
+    const [rows] = await connection.query(`
+      SELECT * FROM thesis
+      WHERE id = ? AND (professor_id = ? OR id IN (
+        SELECT thesis_id FROM committee_invites WHERE professor_id = ? AND status = 'accepted'
+      ))
+    `, [thesisId, professorId, professorId]);
+
+    if (rows.length === 0) {
+      await connection.end();
+      return res.status(403).json({ error: 'You are not authorized to view comments for this thesis.' });
+    }
+
+    // Fetch comments
+    const [comments] = await connection.query(`
+      SELECT comment, created_at
+      FROM professor_comments
+      WHERE thesis_id = ? AND professor_id = ?
+      ORDER BY created_at DESC
+    `, [thesisId, professorId]);
+
+    await connection.end();
+    res.json({ success: true, comments });
+  } catch (err) {
+    console.error('Error fetching comments:', err);
+    res.status(500).json({ error: 'Failed to fetch comments.' });
   }
 });
 

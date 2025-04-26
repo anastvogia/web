@@ -71,6 +71,9 @@ document.getElementById('filter-form').addEventListener('submit', async (e) => {
           <td>
             <button class="btn btn-sm btn-outline-primary edit-thesis" data-id="${thesis.id}">Edit</button>
           </td> 
+          <td>
+            <button class="btn btn-sm btn-outline-secondary view-comments" data-id="${thesis.id}">View</button>
+          </td>
         `;
         tbody.appendChild(row);
       });
@@ -101,6 +104,7 @@ document.getElementById('filter-form').addEventListener('submit', async (e) => {
             <th>Status</th>
             <th>Role</th>
             <th>Actions</th>
+            <th>Comments</th> <!-- New column for comments -->
           </tr>
         </thead>
         <tbody id="professor-thesis-body">
@@ -108,9 +112,111 @@ document.getElementById('filter-form').addEventListener('submit', async (e) => {
         </tbody>
       </table>
     </div>
-  </div>
 
-<div id="edit-thesis-container" class="container mt-4 d-none">
+    <!-- Thesis Comments Section -->
+    <div id="thesis-comments-section" class="d-none">
+      <!-- Thesis Comments Table -->
+      <div class="table-responsive mt-4">
+        <h3>Thesis Comments</h3>
+        <table class="table table-bordered table-hover align-middle bg-white shadow-sm rounded">
+          <thead class="table-dark">
+            <tr>
+              <th>Comment</th>
+              <th>Timestamp</th>
+            </tr>
+          </thead>
+          <tbody id="thesis-comments-body">
+            <!-- Rows will be dynamically added here -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Add Comment Section -->
+      <div class="mt-4">
+        <h4>Add a Comment</h4>
+        <textarea id="new-comment-text" class="form-control mb-3" rows="3" placeholder="Write your comment here..."></textarea>
+        <div class="text-end">
+          <button id="submit-comment-btn" class="btn btn-primary me-2">Submit</button>
+          <button id="cancel-comment-btn" class="btn btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const commentsSection = document.getElementById('thesis-comments-section');
+  let currentThesisId = null;
+
+  // Handle "View" button click
+  document.addEventListener('click', async (e) => {
+    if (e.target.classList.contains('view-comments')) {
+      currentThesisId = e.target.dataset.id; // Store the thesis ID
+      commentsSection.classList.remove('d-none');
+
+      // Fetch and display comments
+      try {
+        const res = await fetch(`/api/thesis/${currentThesisId}/comments`);
+        const data = await res.json();
+
+        if (data.success) {
+          const commentsBody = document.getElementById('thesis-comments-body');
+          commentsBody.innerHTML = '';
+
+          data.comments.forEach(comment => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${comment.comment}</td>
+              <td>${new Date(comment.created_at).toLocaleString()}</td>
+            `;
+            commentsBody.appendChild(row);
+          });
+        } else {
+          alert('Failed to load comments.');
+        }
+      } catch (err) {
+        console.error('Error fetching comments:', err);
+        alert('An error occurred while fetching comments.');
+      }
+    }
+  });
+
+  // Handle "Submit" button click
+  document.getElementById('submit-comment-btn').addEventListener('click', async () => {
+    const commentText = document.getElementById('new-comment-text').value.trim();
+    if (!commentText) {
+      return alert('Comment cannot be empty.');
+    }
+
+    try {
+      const res = await fetch(`/api/thesis/${currentThesisId}/add-comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ comment: commentText })
+      });
+
+      const result = await res.json();
+      if (result.success) {
+        alert('Comment added successfully!');
+        document.getElementById('new-comment-text').value = '';
+        document.querySelector(`button[data-id="${currentThesisId}"].view-comments`).click(); // Refresh comments
+      } else {
+        alert('Failed to add comment.');
+      }
+    } catch (err) {
+      console.error('Error adding comment:', err);
+      alert('An error occurred while adding the comment.');
+    }
+  });
+
+  // Handle "Cancel" button click
+  document.getElementById('cancel-comment-btn').addEventListener('click', () => {
+    commentsSection.classList.add('d-none');
+    currentThesisId = null;
+  });
+});
+</script>
+
+  <div id="edit-thesis-container" class="container mt-4 d-none">
   <h2 class="mb-4">Edit Thesis</h2>
   <form id="edit-thesis-form" class="row g-3">
     <input type="hidden" id="edit-thesis-id">
@@ -170,7 +276,10 @@ document.getElementById('filter-form').addEventListener('submit', async (e) => {
               <td>${thesis.role}</td> <!-- Correctly display the role -->
               <td>
                 <button class="btn btn-sm btn-outline-primary edit-thesis" data-id="${thesis.id}">Edit</button>
-              </td> <!-- Correctly display the Edit button -->
+              </td>
+              <td>
+                <button class="btn btn-sm btn-outline-secondary view-comments" data-id="${thesis.id}">View</button>
+              </td>
             `;
             tbody.appendChild(row);
           });
