@@ -464,7 +464,101 @@ async function cancelAssignment(thesisId) {
     });
   </script>
 
+<div class="container mt-5">
+  <h3>My Thesis Committee Invitations</h3>
+  <table class="table table-striped table-bordered">
+    <thead class="table-dark">
+      <tr>
+        <th>Thesis Title</th>
+        <th>Invited Professor</th>
+        <th>Status</th>
+        <th>Invited At</th>
+        <th>Responded At</th>
+      </tr>
+    </thead>
+    <tbody id="invite-table-body">
+      <!-- JS will insert data here -->
+    </tbody>
+  </table>
+</div>
 
+
+  
+  <script>
+window.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch('/api/professor-my-thesis-invites');
+    const invites = await res.json();
+
+    const tbody = document.getElementById('invite-table-body');
+    tbody.innerHTML = '';
+
+    if (invites.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="5" class="text-center text-muted">No committee invitations found.</td></tr>`;
+    } else {
+      invites.forEach(invite => {
+        const statusBadge = invite.status === 'accepted'
+          ? `<span class="badge bg-success">Accepted</span>`
+          : invite.status === 'declined'
+          ? `<span class="badge bg-danger">Declined</span>`
+          : `<span class="badge bg-warning text-dark">Pending</span>`;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${invite.thesis_title}</td>
+          <td>${invite.invited_professor}</td>
+          <td>${statusBadge}</td>
+          <td>${invite.invited_at ? invite.invited_at.slice(0, 16).replace('T', ' ') : '-'}</td>
+          <td>${invite.responded_at ? invite.responded_at.slice(0, 16).replace('T', ' ') : '-'}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
+  } catch (err) {
+    console.error('Failed to load invites:', err);
+    alert('Could not load committee invites.');
+  }
+});
+
+
+
+// Load committee invitations
+async function loadInvitesForThesis(thesisId) {
+  try {
+    const res = await fetch(`/api/thesis/${thesisId}/invites`);
+    const invites = await res.json();
+
+    const tbody = document.getElementById('invite-table-body');
+    tbody.innerHTML = '';
+
+    if (invites.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No invites found</td></tr>';
+    } else {
+      invites.forEach(invite => {
+        const statusBadge = invite.status === 'accepted' 
+          ? `<span class="badge bg-success">Accepted</span>`
+          : invite.status === 'declined'
+          ? `<span class="badge bg-danger">Declined</span>`
+          : `<span class="badge bg-warning text-dark">Pending</span>`;
+
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${invite.professor}</td>
+          <td>${statusBadge}</td>
+          <td>${invite.invited_at ? invite.invited_at.slice(0, 16).replace('T', ' ') : '-'}</td>
+          <td>${invite.responded_at ? invite.responded_at.slice(0, 16).replace('T', ' ') : '-'}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+  } catch (err) {
+    console.error('Error loading invites:', err);
+  }
+}
+
+
+  </script>
 <script>
 function openEditForm(thesisId) {
   // Fetch thesis details
