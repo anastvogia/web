@@ -25,6 +25,7 @@
           <th>Title</th>
           <th>Description</th>
           <th>Status</th>
+          <th>Options</th>
         </tr>
       </thead>
       <tbody id="professor-thesis-body">
@@ -33,6 +34,26 @@
     </table>
   </div>
 </div>
+
+<div id="edit-thesis-container" class="container mt-4 d-none">
+  <h2 class="mb-4">Edit Thesis</h2>
+  <form id="edit-thesis-form" class="row g-3">
+    <input type="hidden" id="edit-thesis-id">
+    <div class="col-12">
+      <label for="edit-thesis-title" class="form-label">Thesis Title</label>
+      <input type="text" id="edit-thesis-title" class="form-control" required>
+    </div>
+    <div class="col-12">
+      <label for="edit-thesis-description" class="form-label">Thesis Description</label>
+      <textarea id="edit-thesis-description" class="form-control" rows="4" required></textarea>
+    </div>
+    <div class="col-12 text-end">
+      <button type="submit" class="btn btn-primary">Save Changes</button>
+      <button type="button" class="btn btn-secondary" id="cancel-edit">Cancel</button>
+    </div>
+  </form>
+</div>
+
   <div class="container py-4">
     <h2 class="mb-4">Submit a New Thesis</h2>
     <form id="thesis-form" enctype="multipart/form-data" class="row g-3">
@@ -97,7 +118,6 @@
 
   <script>
   document.getElementById('thesis-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
 
     const formData = new FormData();
     formData.append('title', document.getElementById('thesis-title').value);
@@ -367,24 +387,6 @@ async function cancelAssignment(thesisId) {
     });
   </script>
 
-<div id="edit-thesis-container" class="container mt-4 d-none">
-  <h2 class="mb-4">Edit Thesis</h2>
-  <form id="edit-thesis-form" class="row g-3">
-    <input type="hidden" id="edit-thesis-id">
-    <div class="col-12">
-      <label for="edit-thesis-title" class="form-label">Thesis Title</label>
-      <input type="text" id="edit-thesis-title" class="form-control" required>
-    </div>
-    <div class="col-12">
-      <label for="edit-thesis-description" class="form-label">Thesis Description</label>
-      <textarea id="edit-thesis-description" class="form-control" rows="4" required></textarea>
-    </div>
-    <div class="col-12 text-end">
-      <button type="submit" class="btn btn-primary">Save Changes</button>
-      <button type="button" class="btn btn-secondary" id="cancel-edit">Cancel</button>
-    </div>
-  </form>
-</div>
 
 <script>
 function openEditForm(thesisId) {
@@ -400,7 +402,7 @@ function openEditForm(thesisId) {
 
         // Show the edit thesis container and hide the thesis table
         document.getElementById('edit-thesis-container').classList.remove('d-none');
-        document.querySelector('.container.mt-5').classList.add('d-none');
+        // document.querySelector('.container.mt-5').classList.add('d-none');
       } else {
         alert('Failed to fetch thesis details.');
       }
