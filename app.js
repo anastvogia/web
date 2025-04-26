@@ -163,6 +163,11 @@ app.get('/secretariat-home.html', isAuthenticated('secretariat'), (req, res) => 
   res.sendFile(path.join(__dirname, 'public', 'secretariat-home.html'));
 });
 
+// Serve professor-home.html only if the user is logged in and has 'professor' role
+app.get('/professor-home.html', isAuthenticated('professor'), (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'professor-home.html'));
+});
+
 app.get('/login.html', (req, res) => {
   if (req.session.user) {
     if (req.session.user.role === 'student') {
@@ -675,7 +680,10 @@ app.post('/api/respond-invite', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 
-  const professorId = req.session.user.id;
+  const professorId = req.session.user ? req.session.user.id : null;
+  if (!professorId) {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
   const { inviteId, response } = req.body; // response = 'accepted' or 'declined'
 
   if (!['accepted', 'declined'].includes(response)) {
@@ -1013,11 +1021,13 @@ app.post('/api/cancel-assignment', async (req, res) => {
 app.get('/api/available-theses', async (req, res) => {
   const connection = await mysql.createConnection(dbConfig);
 
+  const professorId = req.session.user.id;
+  console.log('Professor ID:', professorId);
   const [rows] = await connection.query(`
     SELECT id, title
     FROM thesis
-    WHERE status IS NULL
-  `);
+    WHERE status IS NULL and professor_id = ?
+  `, [professorId]);
 
   await connection.end();
   res.json(rows);
