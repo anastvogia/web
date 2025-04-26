@@ -240,34 +240,23 @@ app.get('/api/thesis', async (req, res) => {
 app.get('/api/thesis/:id', async (req, res) => {
   const thesisId = req.params.id;
 
+  console.log('Fetching thesis with ID:', thesisId); // Debugging log
+
   try {
     const connection = await mysql.createConnection(dbConfig);
-
-    const [rows] = await connection.query('SELECT * FROM thesis WHERE id = ?', [thesisId]);
+    const [rows] = await connection.query('SELECT id, title, description FROM thesis WHERE id = ?', [thesisId]);
+    await connection.end();
 
     if (rows.length > 0) {
-      const thesis = rows[0];
-
-      const [committee] = await connection.query(
-        `SELECT u.username 
-         FROM committee_invites ci
-         JOIN users u ON ci.professor_id = u.id
-         WHERE ci.thesis_id = ? AND ci.status = 'accepted'`,
-        [thesisId]
-      );
-
-      // Add the committee usernames to the thesis object
-      thesis.committee_names = committee.map(c => c.username).join(', ') || null;
-
-      res.json(thesis);
+      console.log('Thesis found:', rows[0]); // Debugging log
+      res.json(rows[0]);
     } else {
+      console.log('Thesis not found'); // Debugging log
       res.status(404).json({ error: 'Thesis not found' });
     }
-
-    await connection.end();
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Database error' });
+    console.error('Error fetching thesis:', err);
+    res.status(500).json({ error: 'Failed to fetch thesis' });
   }
 });
 
@@ -945,6 +934,92 @@ app.post('/api/mark-completed', async (req, res) => {
 
 
 
+const upload = multer({
+  dest: 'uploads/', // Directory to store uploaded files
+  limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
+});
+
+
+app.post('/api/submit-thesis', upload.single('file'), async (req, res) => {
+  const { title, description } = req.body;
+
+  if (!title || !description) {
+    return res.status(400).json({ success: false, message: 'Missing required fields.' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+
+    const query = `
+      INSERT INTO thesis (title, description, description_file, professor_id)
+      VALUES (?, ?, ?, ?)
+    `;
+    if (req.file){
+      const filePath = path.join('uploads', req.file.filename);
+      await connection.execute(query, [title, description, filePath, req.session.user.id]);
+
+    }
+    else {
+      await connection.execute(query, [title, description, null, req.session.user.id]);
+    } 
+    await connection.end();
+
+    res.status(200).json({ success: true, message: 'Thesis submitted successfully.' });
+  } catch (error) {
+    console.error('Error submitting thesis:', error);
+    res.status(500).json({ success: false, message: 'Failed to submit thesis.' });
+  }
+});
+app.get('/api/professor-theses', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Fetch theses created by the logged-in professor
+    const [rows] = await connection.query(`
+      SELECT id, title, description, status, assigned_date
+      FROM thesis
+      WHERE professor_id = ?
+    `, [req.session.user.id]);
+
+    await connection.end();
+
+    res.status(200).json({ success: true, theses: rows });
+  } catch (error) {
+    console.error('Error fetching professor theses:', error);
+    res.status(500).json({ success: false, message: 'Failed to fetch theses.' });
+  }
+});
+app.put('/api/thesis/:id', async (req, res) => {
+  const thesisId = req.params.id;
+  const { title, description } = req.body;
+
+  if (!title || !description) {
+    return res.status(400).json({ success: false, message: 'Missing required fields.' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    const [result] = await connection.query(
+      'UPDATE thesis SET title = ?, description = ? WHERE id = ?',
+      [title, description, thesisId]
+    );
+    await connection.end();
+
+    if (result.affectedRows > 0) {
+      res.json({ success: true, message: 'Thesis updated successfully.' });
+    } else {
+      res.status(404).json({ success: false, message: 'Thesis not found.' });
+    }
+  } catch (err) {
+    console.error('Error updating thesis:', err);
+    res.status(500).json({ success: false, message: 'Failed to update thesis.' });
+  }
+});
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

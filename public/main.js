@@ -119,7 +119,4 @@ window.addEventListener('DOMContentLoaded', () => {
       }
     });
 
-
-
-
   });
