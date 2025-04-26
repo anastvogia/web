@@ -229,66 +229,69 @@ app.post('/api/import-users', importUpload.single('file'), async (req, res) => {
 });
 
 // API to get all theses, sorted by assigned_date (newest first)
+// Fetch ONLY active or under_review theses
 app.get('/api/thesis', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
-    const [rows] = await connection.query('SELECT * FROM thesis ORDER BY assigned_date DESC');
+    const [rows] = await connection.query(`
+      SELECT id, title, status, assigned_date
+      FROM thesis
+      WHERE status IN ('active', 'under_review')
+      ORDER BY assigned_date DESC
+    `);
     await connection.end();
     res.json(rows);
   } catch (err) {
-    console.error(err);
+    console.error('[Fetch Theses Error]', err);
     res.status(500).json({ error: 'Database error' });
   }
 });
 
-// API to get a specific thesis by ID
+
+// Fetch full data for one thesis by ID
 app.get('/api/thesis/:id', async (req, res) => {
   const thesisId = req.params.id;
 
-  console.log('Fetching thesis with ID:', thesisId); // Debugging log
-
   try {
     const connection = await mysql.createConnection(dbConfig);
-    const [rows] = await connection.query('SELECT id, title, description FROM thesis WHERE id = ?', [thesisId]);
+
+    // Get thesis basic info
+    const [thesisRows] = await connection.query(`
+      SELECT id, title, description, status, assigned_date, additional_links, exam_date, exam_location, exam_link, nemertis_link, draft_file_path
+      FROM thesis
+      WHERE id = ?
+    `, [thesisId]);
+
+    if (thesisRows.length === 0) {
+      await connection.end();
+      return res.status(404).json({ error: 'Thesis not found' });
+    }
+
+    const thesis = thesisRows[0];
+
+    // Now get committee (accepted professors)
+    const [committeeRows] = await connection.query(`
+      SELECT u.username
+      FROM committee_invites ci
+      JOIN users u ON ci.professor_id = u.id
+      WHERE ci.thesis_id = ? AND ci.status = 'accepted'
+    `, [thesisId]);
+
     await connection.end();
 
-    if (rows.length > 0) {
-      console.log('Thesis found:', rows[0]); // Debugging log
-      res.json(rows[0]);
-    } else {
-      console.log('Thesis not found'); // Debugging log
-      res.status(404).json({ error: 'Thesis not found' });
-    }
+    // Prepare committee names
+    const committeeList = committeeRows.map(row => row.username).join(', ');
+
+    // Add committee list to thesis
+    thesis.committee_names = committeeList || 'Pending';
+
+    res.json(thesis);
   } catch (err) {
     console.error('Error fetching thesis:', err);
     res.status(500).json({ error: 'Failed to fetch thesis' });
   }
 });
 
-
-app.post('/api/set-links', async (req, res) => {
-  if (!req.session.user || req.session.user.role !== 'student') {
-    return res.status(403).json({ error: 'Unauthorized' });
-  }
-
-  const { links } = req.body;
-  const studentId = req.session.user.id;
-
-  console.log(`Student ${studentId} submitted links:\n${links}`);
-
-  try {
-    const connection = await mysql.createConnection(dbConfig);
-    await connection.query(
-      'UPDATE thesis SET additional_links = ? WHERE student_id = ?',
-      [links, studentId]
-    );
-    await connection.end();
-    res.json({ success: true });
-  } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Failed to save links' });
-  }
-});
 
 
 
@@ -899,7 +902,6 @@ app.post('/api/register-protocol', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Ενημέρωση της διπλωματικής εργασίας με τον ΑΠ και την ημερομηνία
     const query = `
       UPDATE thesis
       SET protocol_number = ?, assembly_date = ?
@@ -939,6 +941,7 @@ app.post('/api/mark-completed', async (req, res) => {
   await connection.end();
   res.json({ success: true });
 });
+
 app.get('/api/students', async (req, res) => {
   const { search } = req.query;
 
@@ -959,6 +962,7 @@ app.get('/api/students', async (req, res) => {
 
   res.json(students);
 });
+
 app.post('/api/assign-thesis', async (req, res) => {
   const { studentId, title, description } = req.body;
 
@@ -1236,6 +1240,8 @@ app.put('/api/thesis/:id', async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to update thesis.' });
   }
 });
+
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);

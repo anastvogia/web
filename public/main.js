@@ -37,21 +37,32 @@ window.addEventListener('DOMContentLoaded', () => {
       const thesisId = new URLSearchParams(window.location.search).get('id');
       if (thesisId) {
         fetch(`/api/thesis/${thesisId}`)
-          .then(res => res.json())
+          .then(res => {
+            if (!res.ok) {
+              throw new Error(`Failed to fetch thesis with ID ${thesisId}`);
+            }
+            return res.json();
+          })
           .then(entry => {
-            document.getElementById('thesis-title').textContent = entry.title;
-            document.getElementById('thesis-status').textContent = entry.status;
-            document.getElementById('thesis-assigned-date').textContent = entry.assigned_date.slice(0, -14);
-            document.getElementById('thesis-description').textContent = entry.description;
-            document.getElementById('thesis-committee').textContent = entry.committee_names || 'pending';
+            document.getElementById('thesis-title').textContent = entry.title || 'N/A';
+            document.getElementById('thesis-status').textContent = entry.status || 'N/A';
+            document.getElementById('thesis-assigned-date').textContent = entry.assigned_date
+              ? entry.assigned_date.slice(0, -14)
+              : 'N/A';
+            document.getElementById('thesis-description').textContent = entry.description || 'N/A';
+            document.getElementById('thesis-committee').textContent = entry.committee_names || 'Pending';
 
-            if (typeof entry.status !== 'undefined' && entry.status === 'active') {
+            if (entry.status === 'active') {
               document.getElementById('conditional-forms').classList.remove('d-none');
             }
           })
           .catch(err => {
             console.error('Failed to load thesis:', err);
+            alert('Could not load thesis. Please try again later.');
           });
+      } else {
+        console.error('No thesis ID provided in the URL.');
+        alert('Invalid thesis ID. Please go back and select a valid thesis.');
       }
     }
     
