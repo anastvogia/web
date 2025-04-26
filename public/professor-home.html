@@ -17,23 +17,98 @@
 
 <body class="bg-light">
   <div class="container mt-5">
-  <h1 class="mb-4 text-center">Your Theses</h1>
-  <div class="table-responsive">
-    <table class="table table-bordered table-hover align-middle bg-white shadow-sm rounded">
-      <thead class="table-dark">
-        <tr>
-          <th>Title</th>
-          <th>Description</th>
-          <th>Status</th>
-          <th>Options</th>
-        </tr>
-      </thead>
-      <tbody id="professor-thesis-body">
-  <!-- Rows will be dynamically added here -->
-</tbody>
-    </table>
+    <h1 class="mb-4 text-center">Your Theses</h1>
+
+    <!-- Filter Form -->
+    <div class="container mt-4">
+      <h2 class="mb-4">Filter Theses</h2>
+      <form id="filter-form" class="row g-3">
+        <div class="col-md-6">
+          <label for="status-filter" class="form-label">Status</label>
+          <select id="status-filter" class="form-select">
+            <option value="">All</option>
+            <option value="under_assignment">Under Assignment</option>
+            <option value="active">Active</option>
+            <option value="completed">Completed</option>
+            <option value="cancelled">Cancelled</option>
+          </select>
+        </div>
+        <div class="col-md-6">
+          <label for="role-filter" class="form-label">Role</label>
+          <select id="role-filter" class="form-select">
+            <option value="">All</option>
+            <option value="Supervisor">Supervisor</option>
+            <option value="Committee Member">Committee Member</option>
+          </select>
+        </div>
+        <div class="col-12 text-end">
+          <button type="submit" class="btn btn-primary">Apply Filters</button>
+        </div>
+      </form>
+    </div>
+
+<script>
+document.getElementById('filter-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+
+  const status = document.getElementById('status-filter').value;
+  const role = document.getElementById('role-filter').value;
+  try {
+    const res = await fetch(`/api/professor-theses-filtered?status=${status}&role=${role}`);
+    const data = await res.json();
+
+    if (data.success) {
+      const tbody = document.getElementById('professor-thesis-body');
+      tbody.innerHTML = '';
+
+      data.theses.forEach(thesis => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${thesis.title}</td>
+          <td>${thesis.description}</td>
+          <td>${thesis.status}</td>
+          <td>${thesis.role}</td>
+          <td>
+            <button class="btn btn-sm btn-outline-primary edit-thesis" data-id="${thesis.id}">Edit</button>
+          </td> 
+        `;
+        tbody.appendChild(row);
+      });
+
+      // Add click event to each "Edit" button
+      document.querySelectorAll('.edit-thesis').forEach(button => {
+        button.addEventListener('click', (e) => {
+          const thesisId = e.target.getAttribute('data-id');
+          openEditForm(thesisId);
+        });
+      });
+    } else {
+      alert('Failed to fetch theses.');
+    }
+  } catch (err) {
+    console.error('Error fetching filtered theses:', err);
+    alert('An error occurred while fetching theses.');
+  }
+});
+</script>
+    <!-- Theses Table -->
+    <div class="table-responsive mt-4">
+      <table class="table table-bordered table-hover align-middle bg-white shadow-sm rounded">
+        <thead class="table-dark">
+          <tr>
+            <th>Title</th>
+            <th>Description</th>
+            <th>Status</th>
+            <th>Role</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="professor-thesis-body">
+          <!-- Rows will be dynamically added here -->
+        </tbody>
+      </table>
+    </div>
   </div>
-</div>
 
 <div id="edit-thesis-container" class="container mt-4 d-none">
   <h2 class="mb-4">Edit Thesis</h2>
@@ -76,42 +151,44 @@
   </div>
 
   <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      fetch('/api/professor-theses')
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            const tbody = document.getElementById('professor-thesis-body');
-            tbody.innerHTML = '';
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        // Fetch theses with roles included
+        const res = await fetch('/api/professor-theses-filtered');
+        const data = await res.json();
 
-            data.theses.forEach(thesis => {
-              const row = document.createElement('tr');
-              row.innerHTML = `
-                <td>${thesis.title}</td>
-                <td>${thesis.description}</td>
-                <td>${thesis.status}</td>
-                <td>
-                  <button class="btn btn-sm btn-outline-primary edit-thesis" data-id="${thesis.id}">Edit</button>
-                </td>
-              `;
-              tbody.appendChild(row);
-            });
+        if (data.success) {
+          const tbody = document.getElementById('professor-thesis-body');
+          tbody.innerHTML = '';
 
-            // Add click event to each "Edit" button
-            document.querySelectorAll('.edit-thesis').forEach(button => {
-              button.addEventListener('click', (e) => {
-                const thesisId = e.target.getAttribute('data-id');
-                openEditForm(thesisId);
-              });
+          data.theses.forEach(thesis => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${thesis.title}</td>
+              <td>${thesis.description}</td>
+              <td>${thesis.status}</td>
+              <td>${thesis.role}</td> <!-- Correctly display the role -->
+              <td>
+                <button class="btn btn-sm btn-outline-primary edit-thesis" data-id="${thesis.id}">Edit</button>
+              </td> <!-- Correctly display the Edit button -->
+            `;
+            tbody.appendChild(row);
+          });
+
+          // Add click event to each "Edit" button
+          document.querySelectorAll('.edit-thesis').forEach(button => {
+            button.addEventListener('click', (e) => {
+              const thesisId = e.target.getAttribute('data-id');
+              openEditForm(thesisId);
             });
-          } else {
-            alert('Failed to fetch theses.');
-          }
-        })
-        .catch(err => {
-          console.error('Error fetching theses:', err);
-          alert('An error occurred while fetching theses.');
-        });
+          });
+        } else {
+          alert('Failed to fetch theses.');
+        }
+      } catch (err) {
+        console.error('Error fetching theses:', err);
+        alert('An error occurred while fetching theses.');
+      }
     });
   </script>
 
