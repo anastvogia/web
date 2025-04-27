@@ -5,9 +5,8 @@ const session = require('express-session');
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const app = express();
-const dbConfig = require('./dbconfig'); // Assuming dbConfig.js exports your database configuration
+const dbConfig = require('./dbconfig'); 
 const PORT = 3000;
-// const dbConfig = require('./dbconfig'); // Assuming dbConfig.js exports your database configuration
 
 // Middleware to parse JSON request bodies
 app.use(express.json());
@@ -516,11 +515,6 @@ app.get('/api/completed-thesis', async (req, res) => {
   }
 });
 
-
-
-
-
-
 // API to check if user is logged in and return their role
 // Check current session (used by navbar)
 app.get('/api/check-session', (req, res) => {
@@ -1018,7 +1012,7 @@ app.get('/api/available-theses', async (req, res) => {
   const connection = await mysql.createConnection(dbConfig);
 
   const professorId = req.session.user.id;
-  console.log('Professor ID:', professorId);
+  // console.log('Professor ID:', professorId);
   const [rows] = await connection.query(`
     SELECT id, title
     FROM thesis
