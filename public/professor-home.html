@@ -67,7 +67,7 @@ async function loadTheses(status = '', role = '') {
           <td>${thesis.role}</td>
           <td>
             <button class="btn btn-sm btn-outline-primary edit-thesis" data-id="${thesis.id}">Edit</button>
-          </td> 
+          </td>
           <td>
             <button class="btn btn-sm btn-outline-secondary view-comments" data-id="${thesis.id}">View</button>
           </td>
@@ -78,23 +78,48 @@ async function loadTheses(status = '', role = '') {
                 : `<span class="text-muted">N/A</span>`
             }
           </td>
+          <td>
+            ${
+              thesis.status === 'active'
+                ? `<button class="btn btn-sm btn-outline-warning mark-under-review-btn" data-id="${thesis.id}">Mark as Under Review</button>`
+                : `<span class="text-muted">N/A</span>`
+            }
+          </td>
         `;
         tbody.appendChild(row);
       });
 
-      // Add click event to each "Edit" button
-      document.querySelectorAll('.edit-thesis').forEach(button => {
-        button.addEventListener('click', (e) => {
+      document.querySelectorAll('.mark-under-review-btn').forEach(button => {
+        button.addEventListener('click', async (e) => {
           const thesisId = e.target.getAttribute('data-id');
-          openEditForm(thesisId);
+          if (!confirm('Are you sure you want to mark this thesis as Under Review?')) return;
+
+          try {
+            const res = await fetch(`/api/thesis/${thesisId}/mark-under-review`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            });
+
+            const result = await res.json();
+            if (result.success) {
+              alert('Thesis successfully marked as Under Review.');
+              window.location.reload();
+            } else {
+              alert(result.message || 'Failed to update thesis status.');
+            }
+          } catch (err) {
+            console.error('Error marking thesis as under review:', err);
+            alert('Server error.');
+          }
         });
       });
+
     } else {
-      alert('Failed to fetch theses.');
+      alert('Failed to load theses.');
     }
   } catch (err) {
-    console.error('Error fetching filtered theses:', err);
-    alert('An error occurred while fetching theses.');
+    console.error('Error loading theses:', err);
+    alert('An error occurred while loading theses.');
   }
 }
 
@@ -123,6 +148,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <th>Actions</th>
             <th>Comments</th>
             <th>Draft</th>
+            <th>Under Review</th>
           </tr>
         </thead>
         <tbody id="professor-thesis-body">

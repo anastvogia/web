@@ -1686,6 +1686,33 @@ app.get('/api/thesis/:id/status-history', async (req, res) => {
   }
 });
 
+app.post('/api/thesis/:id/mark-under-review', async (req, res) => {
+  const thesisId = req.params.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [result] = await connection.query(`
+      UPDATE thesis
+      SET status = 'under_review'
+      WHERE id = ? AND status = 'active'
+    `, [thesisId]);
+
+    await connection.end();
+
+    if (result.affectedRows === 0) {
+      return res.status(400).json({ success: false, message: 'Thesis not found or not active.' });
+    }
+
+    res.json({ success: true, message: 'Thesis marked as under review.' });
+  } catch (error) {
+    console.error('Error marking thesis as under review:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
