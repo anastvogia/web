@@ -28,6 +28,7 @@
           <select id="status-filter" class="form-select">
             <option value="">All</option>
             <option value="under_assignment">Under Assignment</option>
+            <option value="under_review">Under Review</option>
             <option value="active">Active</option>
             <option value="completed">Completed</option>
             <option value="cancelled">Cancelled</option>
@@ -48,11 +49,7 @@
     </div>
 
 <script>
-document.getElementById('filter-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-
-  const status = document.getElementById('status-filter').value;
-  const role = document.getElementById('role-filter').value;
+async function loadTheses(status = '', role = '') {
   try {
     const res = await fetch(`/api/professor-theses-filtered?status=${status}&role=${role}`);
     const data = await res.json();
@@ -74,6 +71,13 @@ document.getElementById('filter-form').addEventListener('submit', async (e) => {
           <td>
             <button class="btn btn-sm btn-outline-secondary view-comments" data-id="${thesis.id}">View</button>
           </td>
+          <td>
+            ${
+              thesis.status === 'under_review'
+                ? `<button class="btn btn-sm btn-outline-primary view-draft" data-id="${thesis.id}">View Draft</button>`
+                : `<span class="text-muted">N/A</span>`
+            }
+          </td>
         `;
         tbody.appendChild(row);
       });
@@ -92,6 +96,19 @@ document.getElementById('filter-form').addEventListener('submit', async (e) => {
     console.error('Error fetching filtered theses:', err);
     alert('An error occurred while fetching theses.');
   }
+}
+
+// Load theses on page load
+document.addEventListener('DOMContentLoaded', () => {
+  loadTheses();
+
+  // Add event listener for filter form submission
+  document.getElementById('filter-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const status = document.getElementById('status-filter').value;
+    const role = document.getElementById('role-filter').value;
+    loadTheses(status, role);
+  });
 });
 </script>
     <!-- Theses Table -->
@@ -99,12 +116,13 @@ document.getElementById('filter-form').addEventListener('submit', async (e) => {
       <table class="table table-bordered table-hover align-middle bg-white shadow-sm rounded">
         <thead class="table-dark">
           <tr>
-            <th>Title</th>
+            <th>Title1</th>
             <th>Description</th>
             <th>Status</th>
             <th>Role</th>
             <th>Actions</th>
-            <th>Comments</th> <!-- New column for comments -->
+            <th>Comments</th>
+            <th>Draft</th>
           </tr>
         </thead>
         <tbody id="professor-thesis-body">
@@ -255,52 +273,6 @@ document.addEventListener('DOMContentLoaded', () => {
       </div>
     </form>
   </div>
-
-  <script>
-    window.addEventListener('DOMContentLoaded', async () => {
-      try {
-        // Fetch theses with roles included
-        const res = await fetch('/api/professor-theses-filtered');
-        const data = await res.json();
-
-        if (data.success) {
-          const tbody = document.getElementById('professor-thesis-body');
-          tbody.innerHTML = '';
-
-          data.theses.forEach(thesis => {
-            const row = document.createElement('tr');
-            row.innerHTML = `
-              <td>${thesis.title}</td>
-              <td>${thesis.description}</td>
-              <td>${thesis.status}</td>
-              <td>${thesis.role}</td> <!-- Correctly display the role -->
-              <td>
-                <button class="btn btn-sm btn-outline-primary edit-thesis" data-id="${thesis.id}">Edit</button>
-              </td>
-              <td>
-                <button class="btn btn-sm btn-outline-secondary view-comments" data-id="${thesis.id}">View</button>
-              </td>
-            `;
-            tbody.appendChild(row);
-          });
-
-          // Add click event to each "Edit" button
-          document.querySelectorAll('.edit-thesis').forEach(button => {
-            button.addEventListener('click', (e) => {
-              const thesisId = e.target.getAttribute('data-id');
-              openEditForm(thesisId);
-            });
-          });
-        } else {
-          alert('Failed to fetch theses.');
-        }
-      } catch (err) {
-        console.error('Error fetching theses:', err);
-        alert('An error occurred while fetching theses.');
-      }
-    });
-  </script>
-
 
   <script>
   document.getElementById('thesis-form').addEventListener('submit', async (e) => {
