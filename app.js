@@ -1099,10 +1099,11 @@ app.get('/api/professor-assigned-theses', async (req, res) => {
     const connection = await mysql.createConnection(dbConfig);
 
     const [rows] = await connection.query(`
-      SELECT t.id AS thesis_id, t.title, u.username AS student_username
+      SELECT t.id AS thesis_id, t.title, t.status, u.username AS student_username
       FROM thesis t
       JOIN users u ON t.student_id = u.id
-      WHERE t.professor_id = ? AND t.status = 'under_assignment'
+      WHERE t.professor_id = ? 
+        AND t.status IN ('under_assignment', 'active')
     `, [req.session.user.id]);
 
     await connection.end();
@@ -1113,7 +1114,7 @@ app.get('/api/professor-assigned-theses', async (req, res) => {
   }
 });
 app.post('/api/professor-cancel-assignment', async (req, res) => {
-  const { thesisId } = req.body;
+  const { thesisId, reason } = req.body; // reason and cancelNumber may be provided conditionally
 
   if (!req.session.user || req.session.user.role !== 'professor') {
     return res.status(403).json({ success: false, message: 'Unauthorized' });
@@ -1121,11 +1122,10 @@ app.post('/api/professor-cancel-assignment', async (req, res) => {
 
   try {
     const connection = await mysql.createConnection(dbConfig);
-
     // Check if the thesis belongs to this professor and is under_assignment
     const [rows] = await connection.query(`
-      SELECT * FROM thesis
-      WHERE id = ? AND professor_id = ? AND status = 'under_assignment'
+    SELECT * FROM thesis
+    WHERE id = ? AND professor_id = ? AND (status = 'under_assignment' OR status = 'active')
     `, [thesisId, req.session.user.id]);
 
     if (rows.length === 0) {
@@ -1133,13 +1133,14 @@ app.post('/api/professor-cancel-assignment', async (req, res) => {
       return res.json({ success: false, message: 'Cannot cancel: not found or unauthorized.' });
     }
 
-    // Update thesis to remove assignment
+    // Update thesis: only set the cancellation_reason if provided; otherwise, it will remain NULL
     await connection.query(`
       UPDATE thesis
       SET student_id = NULL,
-          status = NULL
+          status = NULL,
+          cancellation_reason = ?
       WHERE id = ?
-    `, [thesisId]);
+    `, [reason || null, thesisId]);
 
     await connection.end();
     res.json({ success: true, message: 'Assignment cancelled successfully.' });
@@ -1149,6 +1150,8 @@ app.post('/api/professor-cancel-assignment', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
+
+
 
 
 const upload = multer({
@@ -1626,7 +1629,32 @@ app.post('/api/thesis/:id/announcement', async (req, res) => {
   }
 });
 
+app.get('/api/thesis/:id/status-history', async (req, res) => {
+  const thesisId = req.params.id;
 
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [rows] = await connection.query(`
+      SELECT thesis_id, new_status, changed_at
+      FROM thesis_status_history
+      WHERE thesis_id = ?
+      ORDER BY id DESC
+      LIMIT 1;
+    `, [thesisId]);
+
+    await connection.end();
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'No status history found for this thesis.' });
+    }
+
+    res.json({ success: true, data: rows });
+  } catch (err) {
+    console.error('Error fetching thesis status history:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
 
 // Start the server
 app.listen(PORT, () => {

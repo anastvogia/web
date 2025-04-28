@@ -398,6 +398,7 @@ document.addEventListener('DOMContentLoaded', () => {
         <tr>
           <th>Student Username</th>
           <th>Thesis Title</th>
+          <th>Status</th>
           <th>Action</th>
         </tr>
       </thead>
@@ -436,13 +437,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     assignmentBody.innerHTML = '';
 
     if (assigned.length === 0) {
-      assignmentBody.innerHTML = '<tr><td colspan="3" class="text-center text-muted">No students assigned yet.</td></tr>';
+      assignmentBody.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No students assigned yet.</td></tr>';
     } else {
       assigned.forEach(thesis => {
         const row = document.createElement('tr');
         row.innerHTML = `
           <td>${thesis.student_username}</td>
           <td>${thesis.title}</td>
+          <td>${thesis.status}</td>
           <td>
             <button class="btn btn-sm btn-danger" onclick="cancelAssignment(${thesis.thesis_id})">
               Cancel
@@ -459,31 +461,87 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 // Cancel assignment
 async function cancelAssignment(thesisId) {
-  if (!confirm('Are you sure you want to cancel this assignment?')) return;
-
   try {
-    const res = await fetch('/api/professor-cancel-assignment', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ thesisId })
-    });
+    // Fetch the thesis data (only the status is needed)
+    const thesisRes = await fetch(`/api/thesis/${thesisId}`);
+    const thesis = await thesisRes.json();
 
-    const result = await res.json();
-    if (result.success) {
-      window.location.reload();
-      // Remove the row directly
-      const row = document.getElementById(`row-${thesisId}`);
-      if (row) row.remove();
+    if (thesis.error) {
+      return alert('Thesis not found.');
+    }
 
-      alert('Assignment cancelled successfully.');
+    // If thesis is active, check the date via status-history
+    if (thesis.status === 'active') {
+      // Fetch the thesis status history
+      const historyRes = await fetch(`/api/thesis/${thesisId}/status-history`);
+      const history = await historyRes.json();
+
+      if (!history.success) {
+        return alert('Failed to fetch thesis status history.');
+      }
+
+      // Locate the active status change.
+      const activeStatus = history.data.find(entry => entry.new_status === 'active');
+      if (!activeStatus) {
+        return alert('Thesis has never been marked as active.');
+      }
+
+      const activeChangedAt = new Date(activeStatus.changed_at);
+      const currentDate = new Date();
+      const twoYearsInMs = 2 * 365 * 24 * 60 * 60 * 1000;
+
+      // If active for more than 2 years, prompt for cancellation number and include cancellation reason
+      if (currentDate - activeChangedAt > twoYearsInMs) {
+        const cancelNumber = prompt('This thesis has been active for more than 2 years. Please enter the cancellation number:');
+        if (!cancelNumber) {
+          return alert('Cancellation number is required.');
+        }
+
+        const cancelRes = await fetch('/api/professor-cancel-assignment', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ thesisId, reason: "Cancelled By Professor" })
+      });
+
+
+        const cancelResult = await cancelRes.json();
+        if (cancelResult.success) {
+          alert('Assignment cancelled successfully.');
+          window.location.reload();
+        } else {
+          alert('Failed to cancel assignment.');
+        }
+      } else {
+        // If active for less than 2 years, cancellation is not allowed
+        alert("You can't cancel this thesis.");
+      }
     } else {
-      alert('Failed to cancel assignment.');
+      // For non-active statuses, proceed with normal cancellation (without a cancellation reason)
+      if (!confirm('Are you sure you want to cancel this assignment?')) return;
+
+      const normalCancelRes = await fetch('/api/professor-cancel-assignment', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        // Omit the reason property so that it remains NULL in the update
+        body: JSON.stringify({ thesisId })
+      });
+
+      const normalCancelResult = await normalCancelRes.json();
+      if (normalCancelResult.success) {
+        alert('Assignment cancelled successfully.');
+        window.location.reload();
+      } else {
+        alert('Failed to cancel assignment.');
+      }
     }
   } catch (err) {
     console.error('Error cancelling assignment:', err);
     alert('Server error during cancellation.');
   }
 }
+
+
+
 
   </script>  
   
