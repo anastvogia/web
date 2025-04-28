@@ -1629,6 +1629,36 @@ app.post('/api/thesis/:id/announcement', async (req, res) => {
   }
 });
 
+app.get('/api/thesis/:id/draft', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const thesisId = req.params.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Fetch the draft file path for the thesis
+    const [rows] = await connection.query(`
+      SELECT draft_file_path
+      FROM thesis
+      WHERE id = ?
+    `, [thesisId]);
+
+    await connection.end();
+
+    if (rows.length === 0 || !rows[0].draft_file_path) {
+      return res.status(404).json({ error: 'Draft not found or thesis is not under review.' });
+    }
+
+    res.json({ success: true, draftFilePath: rows[0].draft_file_path });
+  } catch (err) {
+    console.error('Error fetching draft:', err);
+    res.status(500).json({ error: 'Failed to fetch draft.' });
+  }
+});
+
 app.get('/api/thesis/:id/status-history', async (req, res) => {
   const thesisId = req.params.id;
 

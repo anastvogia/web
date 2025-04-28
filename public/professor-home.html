@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
       <table class="table table-bordered table-hover align-middle bg-white shadow-sm rounded">
         <thead class="table-dark">
           <tr>
-            <th>Title1</th>
+            <th>Title</th>
             <th>Description</th>
             <th>Status</th>
             <th>Role</th>
@@ -893,7 +893,30 @@ async function saveAnnouncement(thesisId, buttonElement) {
     alert('Server error.');
   }
 }
+</script>
 
+
+<script>
+  document.addEventListener('click', async (e) => {
+  if (e.target.classList.contains('view-draft')) {
+    console.log('Button clicked!'); // Debugging line
+    const thesisId = e.target.getAttribute('data-id');
+    console.log('Thesis ID:', thesisId); // Debugging line
+    try {
+      const res = await fetch(`/api/thesis/${thesisId}/draft`);
+      const data = await res.json();
+
+      if (data.success) {
+        window.open(data.draftFilePath, '_blank');
+      } else {
+        alert(data.error || 'Failed to fetch draft.');
+      }
+    } catch (err) {
+      console.error('Error fetching draft:', err);
+      alert('An error occurred while fetching the draft.');
+    }
+  }
+});
 </script>
 
 </body>
