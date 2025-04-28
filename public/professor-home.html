@@ -700,5 +700,143 @@ document.getElementById('cancel-edit').addEventListener('click', () => {
 });
 </script>
 
+<div class="container my-5">
+  <h2 class="mb-4">My Thesis Announcements</h2>
+  <table class="table table-bordered table-hover">
+    <thead class="table-dark">
+      <tr>
+        <th>Thesis ID</th>
+        <th>Title</th>
+        <th>Editable Announcement</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody id="announcement-table-body">
+      <!-- JavaScript will inject rows here -->
+    </tbody>
+  </table>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  const announcementContainer = document.getElementById('announcement-table-body');
+
+  try {
+    const res = await fetch('/api/professor-announcements');
+    const data = await res.json();
+
+    if (data.success) {
+      announcementContainer.innerHTML = '';
+
+      if (data.theses.length === 0) {
+        announcementContainer.innerHTML = '<tr><td colspan="4" class="text-center text-muted">No announcements available.</td></tr>';
+      } else {
+        data.theses.forEach(thesis => {
+          const row = document.createElement('tr');
+
+          let announcementText = '';
+
+          if (thesis.announcement_text) {
+            // If the professor has saved a custom announcement
+            announcementText = thesis.announcement_text;
+          } else {
+            // Otherwise, generate the default template
+            const examPlace = thesis.exam_mode === 'online' 
+              ? `Online Link: ${thesis.exam_link}` 
+              : `Location: ${thesis.exam_location}`;
+            
+            announcementText = `
+ANNOUNCEMENT
+
+Thesis Presentation:
+"${thesis.title}"
+
+Date and Time: ${new Date(thesis.exam_date).toLocaleString('en-GB')}
+
+${examPlace}
+
+Committee:
+${thesis.committee || 'Pending'}
+
+You are invited to attend the presentation.
+            `.trim();
+          }
+
+          row.innerHTML = `
+            <td>${thesis.id}</td>
+            <td>${thesis.title}</td>
+            <td>
+              <textarea class="form-control announcement-textarea" rows="10">${announcementText}</textarea>
+            </td>
+            <td>
+              <button class="btn btn-outline-success btn-sm" onclick="saveAnnouncement(${thesis.id}, this)">Save</button>
+              <button class="btn btn-outline-primary btn-sm" onclick="downloadAnnouncement(${thesis.id})">Download</button>
+            </td>
+          `;
+          announcementContainer.appendChild(row);
+        });
+      }
+    } else {
+      alert('Failed to load announcements.');
+    }
+  } catch (err) {
+    console.error('Error loading announcements:', err);
+    alert('Server error.');
+  }
+});
+
+
+
+// Function to download the announcement
+function downloadAnnouncement(thesisId) {
+  const textarea = document.querySelector(`textarea.announcement-textarea`);
+  if (!textarea) {
+    alert('No announcement found.');
+    return;
+  }
+
+  const content = textarea.value;
+
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `announcement-thesis-${thesisId}.txt`;
+  a.click();
+
+  URL.revokeObjectURL(url);
+}
+
+async function saveAnnouncement(thesisId, buttonElement) {
+  const row = buttonElement.closest('tr');
+  const textarea = row.querySelector('.announcement-textarea');
+  const newAnnouncement = textarea.value.trim();
+
+  if (!newAnnouncement) {
+    return alert('Announcement text cannot be empty.');
+  }
+
+  try {
+    const res = await fetch(`/api/save-announcement/${thesisId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ announcement: newAnnouncement })
+    });
+
+    const result = await res.json();
+    if (result.success) {
+      alert('Announcement saved successfully!');
+    } else {
+      alert('Failed to save announcement.');
+    }
+  } catch (err) {
+    console.error('Error saving announcement:', err);
+    alert('Server error.');
+  }
+}
+
+</script>
+
 </body>
 </html>

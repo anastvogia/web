@@ -1437,6 +1437,197 @@ app.get('/api/thesis/:id/comments', async (req, res) => {
   }
 });
 
+app.get('/api/thesis/:id/announcement', async (req, res) => {
+  const thesisId = req.params.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [rows] = await connection.query(`
+      SELECT 
+        t.title, 
+        t.exam_date, 
+        t.exam_mode, 
+        t.exam_location, 
+        t.exam_link,
+        t.committee,
+        t.announcement
+      FROM thesis t
+      WHERE t.id = ?
+    `, [thesisId]);
+
+    await connection.end();
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Thesis not found' });
+    }
+
+    const thesis = rows[0];
+
+    // If a custom announcement exists, return it
+    if (thesis.announcement) {
+      return res.json({ success: true, announcement: thesis.announcement });
+    }
+
+    // Otherwise, generate one automatically
+    if (!thesis.exam_date || (!thesis.exam_location && !thesis.exam_link)) {
+      return res.status(400).json({ success: false, message: 'Presentation details are missing' });
+    }
+
+    const examPlace = thesis.exam_mode === 'online'
+      ? `Online link: ${thesis.exam_link}`
+      : `Location: ${thesis.exam_location}`;
+
+    const autoAnnouncement = `
+ANNOUNCEMENT
+
+Thesis Presentation:
+"${thesis.title}"
+
+Date and Time: ${new Date(thesis.exam_date).toLocaleString('en-GB')}
+
+${examPlace}
+
+Committee Members:
+${thesis.committee || 'Pending'}
+
+You are invited to attend the presentation.
+    `;
+
+    res.json({ success: true, announcement: autoAnnouncement });
+
+  } catch (error) {
+    console.error('Error generating announcement:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
+app.get('/api/professor-theses-filtered', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    const professorId = req.session.user.id;
+
+    const [theses] = await connection.query(`
+      SELECT 
+        t.id,
+        t.title,
+        t.description,
+        t.status,
+        t.exam_date,
+        t.exam_mode,
+        t.exam_location,
+        t.exam_link,
+        CASE 
+          WHEN t.professor_id = ? THEN 'Supervisor'
+          ELSE 'Committee Member'
+        END AS role
+      FROM thesis t
+      LEFT JOIN committee_invites ci ON t.id = ci.thesis_id
+      WHERE t.professor_id = ? OR ci.professor_id = ?
+      GROUP BY t.id
+    `, [professorId, professorId, professorId]);
+
+    await connection.end();
+
+    res.json({ success: true, theses });
+
+  } catch (err) {
+    console.error('Error fetching filtered theses:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+app.get('/api/professor-announcements', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
+
+  const professorId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [rows] = await connection.query(`
+      SELECT 
+        t.id,
+        t.title,
+        t.exam_date,
+        t.exam_mode,
+        t.exam_location,
+        t.exam_link,
+        t.committee,
+        t.announcement_text
+      FROM thesis t
+      WHERE 
+        t.professor_id = ? 
+        AND t.status = 'under_review'
+        AND t.exam_date IS NOT NULL 
+        AND (t.exam_location IS NOT NULL OR t.exam_link IS NOT NULL)
+    `, [professorId]);
+
+    await connection.end();
+
+    res.json({ success: true, theses: rows });
+  } catch (err) {
+    console.error('Error fetching announcements:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
+
+// Save custom announcement
+app.post('/api/save-announcement/:id', async (req, res) => {
+  const thesisId = req.params.id;
+  const { announcement } = req.body;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    await connection.query(`
+      UPDATE thesis
+      SET announcement_text = ?
+      WHERE id = ?
+    `, [announcement, thesisId]);
+
+    await connection.end();
+    res.json({ success: true, message: 'Announcement saved.' });
+  } catch (err) {
+    console.error('Error saving announcement:', err);
+    res.status(500).json({ success: false, message: 'Failed to save announcement.' });
+  }
+});
+
+
+app.post('/api/thesis/:id/announcement', async (req, res) => {
+  const thesisId = req.params.id;
+  const { announcement } = req.body;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    await connection.query(`
+      UPDATE thesis
+      SET announcement_text = ?
+      WHERE id = ?
+    `, [announcement, thesisId]);
+
+    await connection.end();
+    res.json({ success: true, message: 'Announcement saved successfully' });
+
+  } catch (error) {
+    console.error('Error saving announcement:', error);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
