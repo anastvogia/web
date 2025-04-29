@@ -1798,16 +1798,6 @@ app.post('/api/thesis/:id/grade', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 
-  const [[thesis]] = await connection.query(
-    'SELECT grading_open FROM thesis WHERE id = ?',
-    [thesisId]
-  );
-  
-  if (!thesis || !thesis.grading_open) {
-    await connection.end();
-    return res.status(403).json({ error: 'Grading is not open yet.' });
-  }
-
   const { id: thesisId } = req.params;
   const { qualityGrade, durationGrade, textQualityGrade, presentationGrade, comments } = req.body;
   const professorId = req.session.user.id;
