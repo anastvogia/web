@@ -1054,5 +1054,132 @@ document.addEventListener('click', async (e) => {
 
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<div class="container mt-5">
+  <h3 class="mb-3 text-center">Your Thesis Participation Stats</h3>
+  <canvas id="thesis-stats-chart" style="max-height: 400px;"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch('/api/professor-thesis-stats');
+    const data = await res.json();
+
+    if (data.success) {
+      const ctx = document.getElementById('thesis-stats-chart').getContext('2d');
+      new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: ['Supervised', 'Committee Member'],
+          datasets: [{
+            label: 'Number of Theses',
+            data: [data.supervised, data.committee],
+            backgroundColor: ['#007bff', '#28a745'],
+            borderColor: ['#0056b3', '#1c7430'],
+            borderWidth: 1,
+            barThickness: 40
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              stepSize: 1
+            }
+          }
+        }
+      });
+    } else {
+      alert('Failed to load thesis statistics.');
+    }
+  } catch (err) {
+    console.error('Error loading thesis stats:', err);
+    alert('An error occurred while loading stats.');
+  }
+});
+</script>
+<div class="container mt-5">
+  <h4 class="mb-4 text-center">Average Completion Time (Days)</h4>
+  <canvas id="avgCompletionChart" height="100"></canvas>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', async () => {
+  try {
+    const res = await fetch('/api/professor-avg-completion');
+    const data = await res.json();
+
+    if (!data.success) {
+      alert('Failed to load data.');
+      return;
+    }
+
+    const ctx = document.getElementById('avgCompletionChart').getContext('2d');
+    new Chart(ctx, {
+      type: 'bar',
+      data: {
+        labels: ['As Supervisor', 'As Committee Member'],
+        datasets: [{
+          label: 'Average Days',
+          data: [data.avg_supervised, data.avg_committee],
+          backgroundColor: ['#0d6efd', '#6c757d'],
+          borderRadius: 6,
+          barThickness: 40, // Slimmer bars
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            display: false
+          },
+          tooltip: {
+            callbacks: {
+              label: (context) => `${context.raw.toFixed(1)} days`
+            }
+          },
+          title: {
+            display: true,
+            text: 'Average Thesis Completion Time',
+            font: {
+              size: 16
+            }
+          }
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            title: {
+              display: true,
+              text: 'Days'
+            },
+            ticks: {
+              precision: 0
+            },
+            grid: {
+              color: 'rgba(0,0,0,0.05)'
+            }
+          },
+          x: {
+            grid: {
+              display: false
+            }
+          }
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Chart load error:', err);
+    alert('Could not load chart data.');
+  }
+});
+</script>
+
+
+
+
 </body>
 </html>
