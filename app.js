@@ -1711,99 +1711,87 @@ app.post('/api/thesis/:id/mark-under-review', async (req, res) => {
   }
 });
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+app.get('/api/professor-thesis-stats', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
+
+  const professorId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Count theses where professor is the supervisor
+    const [supervisedRows] = await connection.query(`
+      SELECT COUNT(*) AS supervised_count
+      FROM thesis
+      WHERE professor_id = ?
+    `, [professorId]);
+
+    const supervisedCount = supervisedRows[0].supervised_count;
+
+    // Count theses where professor is a committee member (excluding supervised ones)
+    const [committeeOnlyRows] = await connection.query(`
+      SELECT COUNT(*) AS committee_only_count
+      FROM committee_invites ci
+      JOIN thesis t ON ci.thesis_id = t.id
+      WHERE ci.professor_id = ? AND ci.status = 'accepted' AND (t.professor_id IS NULL OR t.professor_id != ?)
+    `, [professorId, professorId]);
+
+    const committeeCount = supervisedCount + committeeOnlyRows[0].committee_only_count;
+
+    await connection.end();
+
+    res.json({
+      success: true,
+      supervised: supervisedCount,
+      committee: committeeCount
+    });
+  } catch (error) {
+    console.error('Error fetching thesis stats:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+app.get('/api/professor-avg-completion', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const professorId = req.session.user.id;
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    //Average completion time as supervisor
+    const [[supervised]] = await connection.query(`
+      SELECT AVG(DATEDIFF(t.exam_date, t.assigned_date)) AS avg_days_supervised
+      FROM thesis t
+      WHERE t.professor_id = ? AND t.status = 'completed'
+    `, [professorId]);
+
+    //Average as committee member (excluding duplicates where also supervisor)
+    const [[committee]] = await connection.query(`
+      SELECT AVG(DATEDIFF(t.exam_date, t.assigned_date)) AS avg_days_committee
+      FROM thesis t
+      JOIN committee_invites ci ON t.id = ci.thesis_id
+      WHERE ci.professor_id = ? 
+        AND t.status = 'completed'
+        AND (t.professor_id IS NULL OR t.professor_id != ?)
+    `, [professorId, professorId]);
+
+    await connection.end();
+
+    res.json({
+      success: true,
+      avg_supervised: supervised.avg_days_supervised || 0,
+      avg_committee: committee.avg_days_committee || 0
+    });
+
+  } catch (err) {
+    console.error('Error calculating averages:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
 
 app.post('/api/thesis/:id/grade', async (req, res) => {
   if (!req.session.user || req.session.user.role !== 'professor') {
