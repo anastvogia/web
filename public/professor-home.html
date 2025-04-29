@@ -85,6 +85,13 @@ async function loadTheses(status = '', role = '') {
                 : `<span class="text-muted">N/A</span>`
             }
           </td>
+          <td>
+            ${
+              thesis.status === 'under_review'
+                ? `<button class="btn btn-sm btn-outline-success grade-thesis" data-id="${thesis.id}">Grade</button>`
+                : `<span class="text-muted">N/A</span>`
+            }
+          </td>
         `;
         tbody.appendChild(row);
       });
@@ -149,6 +156,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <th>Comments</th>
             <th>Draft</th>
             <th>Under Review</th>
+            <th>Grade</th>
           </tr>
         </thead>
         <tbody id="professor-thesis-body">
@@ -921,29 +929,130 @@ async function saveAnnouncement(thesisId, buttonElement) {
 }
 </script>
 
-
 <script>
-  document.addEventListener('click', async (e) => {
-  if (e.target.classList.contains('view-draft')) {
-    console.log('Button clicked!'); // Debugging line
+document.addEventListener('click', async (e) => {
+  if (e.target.classList.contains('grade-thesis')) {
     const thesisId = e.target.getAttribute('data-id');
-    console.log('Thesis ID:', thesisId); // Debugging line
+    console.log('Thesis ID:', thesisId);
+
+    const gradeModal = new bootstrap.Modal(document.getElementById('gradeModal'));
+    gradeModal.show();
+
+    // Reset the form whenever it's opened
+    document.getElementById('grade-form').reset();
+
+    // Fetch and display committee grades
+    const committeeGradesContainer = document.getElementById('committee-grades');
+    committeeGradesContainer.innerHTML = '<p class="text-muted">Loading grades...</p>';
+
     try {
-      const res = await fetch(`/api/thesis/${thesisId}/draft`);
+      const res = await fetch(`/api/thesis/${thesisId}/committee-grades`);
       const data = await res.json();
 
       if (data.success) {
-        window.open(data.draftFilePath, '_blank');
+        if (data.grades.length > 0) {
+          committeeGradesContainer.innerHTML = data.grades.map(grade => `
+            <div class="mb-3">
+              <strong>${grade.professor}</strong>
+              <ul>
+                <li>Quality Grade: ${grade.quality_grade}</li>
+                <li>Duration Grade: ${grade.duration_grade}</li>
+                <li>Text Quality Grade: ${grade.text_quality_grade}</li>
+                <li>Presentation Grade: ${grade.presentation_grade}</li>
+                <li>Comments: ${grade.comments || 'No comments'}</li>
+              </ul>
+            </div>
+          `).join('');
+        } else {
+          committeeGradesContainer.innerHTML = '<p class="text-muted">No grades submitted yet.</p>';
+        }
       } else {
-        alert(data.error || 'Failed to fetch draft.');
+        committeeGradesContainer.innerHTML = '<p class="text-danger">Failed to load grades.</p>';
       }
     } catch (err) {
-      console.error('Error fetching draft:', err);
-      alert('An error occurred while fetching the draft.');
+      console.error('Error fetching committee grades:', err);
+      committeeGradesContainer.innerHTML = '<p class="text-danger">An error occurred while loading grades.</p>';
     }
+
+    // Handle grade submission
+    document.getElementById('grade-form').onsubmit = async (e) => {
+      e.preventDefault();
+
+      const qualityGrade = parseInt(document.getElementById('quality-grade').value, 10);
+      const durationGrade = parseInt(document.getElementById('duration-grade').value, 10);
+      const textQualityGrade = parseInt(document.getElementById('text-quality-grade').value, 10);
+      const presentationGrade = parseInt(document.getElementById('presentation-grade').value, 10);
+      const comments = document.getElementById('comments').value;
+
+      console.log('Submitting grades:', { qualityGrade, durationGrade, textQualityGrade, presentationGrade, comments });
+
+      try {
+        const res = await fetch(`/api/thesis/${thesisId}/grade`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ qualityGrade, durationGrade, textQualityGrade, presentationGrade, comments })
+        });
+
+        const result = await res.json();
+        if (result.success) {
+          alert('Grades submitted successfully!');
+          gradeModal.hide();
+        } else {
+          alert('Failed to submit grades: ' + (result.error || 'Unknown error.'));
+        }
+      } catch (err) {
+        console.error('Error submitting grades:', err);
+        alert('An error occurred while submitting grades.');
+      }
+    };
   }
 });
 </script>
+<div class="modal fade" id="gradeModal" tabindex="-1" aria-labelledby="gradeModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="gradeModalLabel">Grade Thesis</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="grade-form">
+          <div class="mb-3">
+            <label for="quality-grade" class="form-label">1. Quality of the Thesis (60%)</label>
+            <input type="number" id="quality-grade" class="form-control" min="0" max="10" step="1" required>
+          </div>
+          <div class="mb-3">
+            <label for="duration-grade" class="form-label">2. Duration of Completion (15%)</label>
+            <input type="number" id="duration-grade" class="form-control" min="0" max="10" step="1" required>
+          </div>
+          <div class="mb-3">
+            <label for="text-quality-grade" class="form-label">3. Quality of the Text (15%)</label>
+            <input type="number" id="text-quality-grade" class="form-control" min="0" max="10" step="1" required>
+          </div>
+          <div class="mb-3">
+            <label for="presentation-grade" class="form-label">4. Presentation Quality (10%)</label>
+            <input type="number" id="presentation-grade" class="form-control" min="0" max="10" step="1" required>
+          </div>
+          <div class="mb-3">
+            <label for="comments" class="form-label">Comments</label>
+            <textarea id="comments" class="form-control" rows="3"></textarea>
+          </div>
+          <button type="submit" class="btn btn-primary">Submit Grades</button>
+        </form>
 
+        <!-- Section to display other committee members' grades -->
+        <div class="mt-4">
+          <h5>Other Committee Members' Grades</h5>
+          <div id="committee-grades" class="border rounded p-3 bg-light">
+            <p class="text-muted">Loading grades...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 </body>
 </html>

@@ -1711,6 +1711,87 @@ app.post('/api/thesis/:id/mark-under-review', async (req, res) => {
   }
 });
 
+app.post('/api/thesis/:id/grade', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const { id: thesisId } = req.params;
+  const { qualityGrade, durationGrade, textQualityGrade, presentationGrade, comments } = req.body;
+  const professorId = req.session.user.id;
+
+  // Validate grades
+  if (
+    !Number.isInteger(qualityGrade) || qualityGrade < 0 || qualityGrade > 10 ||
+    !Number.isInteger(durationGrade) || durationGrade < 0 || durationGrade > 10 ||
+    !Number.isInteger(textQualityGrade) || textQualityGrade < 0 || textQualityGrade > 10 ||
+    !Number.isInteger(presentationGrade) || presentationGrade < 0 || presentationGrade > 10
+  ) {
+    return res.status(400).json({ error: 'Grades must be integers between 0 and 10.' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Check if the professor is part of the committee for this thesis
+    const [rows] = await connection.query(`
+      SELECT 1
+      FROM thesis t
+      LEFT JOIN committee_invites ci ON t.id = ci.thesis_id
+      WHERE t.id = ?
+      AND (t.professor_id = ? OR ci.professor_id = ?);
+    `, [thesisId, professorId , professorId]);
+
+    if (rows.length === 0) {
+      await connection.end();
+      return res.status(403).json({ error: 'You are not authorized to grade this thesis.' });
+    }
+
+    // Insert or update the grades
+    await connection.query(`
+      INSERT INTO committee_grades (thesis_id, professor_id, quality_grade, duration_grade, text_quality_grade, presentation_grade, comments)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+      ON DUPLICATE KEY UPDATE
+        quality_grade = VALUES(quality_grade),
+        duration_grade = VALUES(duration_grade),
+        text_quality_grade = VALUES(text_quality_grade),
+        presentation_grade = VALUES(presentation_grade),
+        comments = VALUES(comments)
+    `, [thesisId, professorId, qualityGrade, durationGrade, textQualityGrade, presentationGrade, comments]);
+
+    await connection.end();
+    res.json({ success: true, message: 'Grades submitted successfully.' });
+  } catch (err) {
+    console.error('Error submitting grades:', err);
+    res.status(500).json({ error: 'Failed to submit grades.' });
+  }
+});
+
+app.get('/api/thesis/:id/committee-grades', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const { id: thesisId } = req.params;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Fetch grades from the committee_grades table
+    const [rows] = await connection.query(`
+      SELECT u.username AS professor, cg.quality_grade, cg.duration_grade, cg.text_quality_grade, cg.presentation_grade, cg.comments
+      FROM committee_grades cg
+      JOIN users u ON cg.professor_id = u.id
+      WHERE cg.thesis_id = ?
+    `, [thesisId]);
+
+    await connection.end();
+    res.json({ success: true, grades: rows });
+  } catch (err) {
+    console.error('Error fetching committee grades:', err);
+    res.status(500).json({ error: 'Failed to fetch committee grades.' });
+  }
+});
 
 
 // Start the server
