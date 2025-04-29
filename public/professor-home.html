@@ -92,9 +92,17 @@ async function loadTheses(status = '', role = '') {
                 : `<span class="text-muted">N/A</span>`
             }
           </td>
+          <td>
+            ${
+              thesis.status === 'under_review'
+                ? `<button class="btn btn-outline-primary btn-sm" onclick="openGrading(${thesis.id})"> Open Grading for Committee</button>`
+                : `<span class="text-muted">N/A</span>`
+            }
+          </td>
         `;
         tbody.appendChild(row);
       });
+
 
       document.querySelectorAll('.mark-under-review-btn').forEach(button => {
         button.addEventListener('click', async (e) => {
@@ -130,6 +138,27 @@ async function loadTheses(status = '', role = '') {
   }
 }
 
+async function openGrading(thesisId) {
+  try {
+    const res = await fetch(`/api/thesis/${thesisId}/open-grading`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+    const data = await res.json();
+
+    if (data.success) {
+      alert('Grading is now open.');
+      location.reload();
+    } else {
+      alert('Failed to open grading: ' + (data.error || 'Unknown error.'));
+    }
+  } catch (err) {
+    console.error('Error opening grading:', err);
+    alert('Server error.');
+  }
+}
+
+
 // Load theses on page load
 document.addEventListener('DOMContentLoaded', () => {
   loadTheses();
@@ -157,6 +186,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <th>Draft</th>
             <th>Under Review</th>
             <th>Grade</th>
+            <th>Open Grade Submission</th>
           </tr>
         </thead>
         <tbody id="professor-thesis-body">
@@ -1188,9 +1218,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 </script>
-
-
-
 
 </body>
 </html>

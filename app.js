@@ -1798,6 +1798,16 @@ app.post('/api/thesis/:id/grade', async (req, res) => {
     return res.status(403).json({ error: 'Unauthorized' });
   }
 
+  const [[thesis]] = await connection.query(
+    'SELECT grading_open FROM thesis WHERE id = ?',
+    [thesisId]
+  );
+  
+  if (!thesis || !thesis.grading_open) {
+    await connection.end();
+    return res.status(403).json({ error: 'Grading is not open yet.' });
+  }
+
   const { id: thesisId } = req.params;
   const { qualityGrade, durationGrade, textQualityGrade, presentationGrade, comments } = req.body;
   const professorId = req.session.user.id;
@@ -1872,6 +1882,41 @@ app.get('/api/thesis/:id/committee-grades', async (req, res) => {
   } catch (err) {
     console.error('Error fetching committee grades:', err);
     res.status(500).json({ error: 'Failed to fetch committee grades.' });
+  }
+});
+
+app.post('/api/thesis/:id/open-grading', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const thesisId = req.params.id;
+  const professorId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Ensure the user is the supervisor of the thesis
+    const [[row]] = await connection.query(
+      'SELECT id FROM thesis WHERE id = ? AND professor_id = ?',
+      [thesisId, professorId]
+    );
+
+    if (!row) {
+      await connection.end();
+      return res.status(403).json({ error: 'Only the supervisor can open grading.' });
+    }
+
+    await connection.query(
+      'UPDATE thesis SET grading_open = TRUE WHERE id = ?',
+      [thesisId]
+    );
+
+    await connection.end();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error opening grading:', err);
+    res.status(500).json({ error: 'Server error' });
   }
 });
 
