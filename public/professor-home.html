@@ -979,10 +979,20 @@ document.addEventListener('click', async (e) => {
       e.preventDefault();
 
       const qualityGrade = parseInt(document.getElementById('quality-grade').value, 10);
-      const durationGrade = parseInt(document.getElementById('duration-grade').value, 10);
-      const textQualityGrade = parseInt(document.getElementById('text-quality-grade').value, 10);
-      const presentationGrade = parseInt(document.getElementById('presentation-grade').value, 10);
-      const comments = document.getElementById('comments').value;
+const durationGrade = parseInt(document.getElementById('duration-grade').value, 10);
+const textQualityGrade = parseInt(document.getElementById('text-quality-grade').value, 10);
+const presentationGrade = parseInt(document.getElementById('presentation-grade').value, 10);
+const comments = document.getElementById('comments').value.trim();
+
+// Validate before sending
+if (
+  isNaN(qualityGrade) ||
+  isNaN(durationGrade) ||
+  isNaN(textQualityGrade) ||
+  isNaN(presentationGrade)
+) {
+  return alert('All grade fields are required and must be numbers.');
+}
 
       console.log('Submitting grades:', { qualityGrade, durationGrade, textQualityGrade, presentationGrade, comments });
 
@@ -1007,6 +1017,7 @@ document.addEventListener('click', async (e) => {
     };
   }
 });
+
 </script>
 <div class="modal fade" id="gradeModal" tabindex="-1" aria-labelledby="gradeModalLabel" aria-hidden="true">
   <div class="modal-dialog">
