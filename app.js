@@ -1321,7 +1321,7 @@ app.get('/api/professor-theses-filtered', async (req, res) => {
     const connection = await mysql.createConnection(dbConfig);
 
     let query = `
-      SELECT DISTINCT t.id, t.title, t.description, t.status, t.assigned_date,
+      SELECT DISTINCT t.id, t.title, t.description, t.status, t.assigned_date,t.grading_open,
              CASE 
                WHEN t.professor_id = ? THEN 'Supervisor'
                WHEN ci.professor_id = ? THEN 'Committee Member'
@@ -1821,8 +1821,7 @@ app.post('/api/thesis/:id/grade', async (req, res) => {
       FROM thesis t
       LEFT JOIN committee_invites ci ON t.id = ci.thesis_id
       WHERE t.id = ?
-      AND (t.professor_id = ? OR ci.professor_id = ?)
-      AND t.grading_open = TRUE;
+      AND (t.professor_id = ? OR ci.professor_id = ?);
     `, [thesisId, professorId , professorId]);
 
     if (rows.length === 0) {
