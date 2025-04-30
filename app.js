@@ -1918,6 +1918,49 @@ app.post('/api/thesis/:id/open-grading', async (req, res) => {
   }
 });
 
+app.get('/api/professor-avg-grades', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const professorId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // As Supervisor
+    const [[supervised]] = await connection.query(`
+      SELECT AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4) AS avg_supervised
+      FROM committee_grades
+      WHERE thesis_id IN (
+        SELECT id FROM thesis WHERE professor_id = ?
+      ) AND professor_id = ?
+    `, [professorId, professorId]);
+
+    // As Committee Member (excluding if supervisor)
+    const [[committee]] = await connection.query(`
+      SELECT AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4) AS avg_committee
+      FROM committee_grades
+      WHERE professor_id = ?
+        AND thesis_id NOT IN (
+          SELECT id FROM thesis WHERE professor_id = ?
+        )
+    `, [professorId, professorId]);
+
+    await connection.end();
+
+    res.json({
+      success: true,
+      avg_supervised: supervised.avg_supervised || 0,
+      avg_committee: committee.avg_committee || 0
+    });
+  } catch (err) {
+    console.error('Error calculating average grades:', err);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+
 
 // Start the server
 app.listen(PORT, () => {

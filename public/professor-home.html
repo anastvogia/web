@@ -1200,7 +1200,7 @@ document.addEventListener('DOMContentLoaded', async () => {
           data: [data.avg_supervised, data.avg_committee],
           backgroundColor: ['#0d6efd', '#6c757d'],
           borderRadius: 6,
-          barThickness: 40, // Slimmer bars
+          barThickness: 40, 
         }]
       },
       options: {
@@ -1250,6 +1250,49 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 </script>
+
+<canvas id="avgGradesChart" width="400" height="200"></canvas>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+  async function loadAvgGradesChart() {
+    try {
+      const res = await fetch('/api/professor-avg-grades');
+      const data = await res.json();
+
+      if (data.success) {
+        const ctx = document.getElementById('avgGradesChart').getContext('2d');
+        new Chart(ctx, {
+          type: 'bar',
+          data: {
+            labels: ['As Supervisor', 'As Committee Member'],
+            datasets: [{
+              label: 'Average Grade',
+              data: [data.avg_supervised, data.avg_committee],
+              borderWidth: 1,
+               barThickness: 40
+            }]
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 10
+              }
+            }
+          }
+        });
+      } else {
+        alert('Failed to load average grades.');
+      }
+    } catch (err) {
+      console.error('Chart loading error:', err);
+    }
+  }
+
+  window.addEventListener('DOMContentLoaded', loadAvgGradesChart);
+</script>
+
 
 </body>
 </html>
