@@ -1821,7 +1821,8 @@ app.post('/api/thesis/:id/grade', async (req, res) => {
       FROM thesis t
       LEFT JOIN committee_invites ci ON t.id = ci.thesis_id
       WHERE t.id = ?
-      AND (t.professor_id = ? OR ci.professor_id = ?);
+      AND (t.professor_id = ? OR ci.professor_id = ?)
+      AND t.grading_open = TRUE;
     `, [thesisId, professorId , professorId]);
 
     if (rows.length === 0) {
@@ -1861,7 +1862,7 @@ app.get('/api/thesis/:id/committee-grades', async (req, res) => {
 
     // Fetch grades from the committee_grades table
     const [rows] = await connection.query(`
-      SELECT u.username AS professor, cg.quality_grade, cg.duration_grade, cg.text_quality_grade, cg.presentation_grade, cg.comments
+      SELECT u.username AS professor, cg.quality_grade, cg.duration_grade, cg.text_quality_grade, cg.presentation_grade, cg.final_grade, cg.comments
       FROM committee_grades cg
       JOIN users u ON cg.professor_id = u.id
       WHERE cg.thesis_id = ?
