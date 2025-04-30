@@ -94,8 +94,8 @@ async function loadTheses(status = '', role = '') {
           </td>
           <td>
             ${
-              thesis.status === 'under_review'
-                ? `<button class="btn btn-outline-primary btn-sm" onclick="openGrading(${thesis.id})"> Open Grading for Committee</button>`
+              thesis.status === 'under_review' && thesis.role === 'Supervisor'
+                ? `<button class="btn btn-outline-primary btn-sm" onclick="openGrading(${thesis.id})"> Open Grading</button>`
                 : `<span class="text-muted">N/A</span>`
             }
           </td>

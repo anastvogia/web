@@ -1821,7 +1821,8 @@ app.post('/api/thesis/:id/grade', async (req, res) => {
       FROM thesis t
       LEFT JOIN committee_invites ci ON t.id = ci.thesis_id
       WHERE t.id = ?
-      AND (t.professor_id = ? OR ci.professor_id = ?);
+      AND (t.professor_id = ? OR ci.professor_id = ?)
+      AND t.grading_open = TRUE;
     `, [thesisId, professorId , professorId]);
 
     if (rows.length === 0) {
