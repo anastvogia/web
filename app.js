@@ -730,8 +730,15 @@ app.get('/api/professors', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
     const [rows] = await connection.query(
-      'SELECT id, username FROM users WHERE role = "professor"'
-    );
+      `SELECT id, username
+      FROM users
+      WHERE role = 'professor'
+        AND id NOT IN (
+          SELECT professor_id
+          FROM thesis
+          WHERE student_id = ?
+        )`
+    , [req.session.user.id]); // Use req.session.user.id for the logged-in student's ID
     await connection.end();
     res.json(rows);
   } catch (err) {
