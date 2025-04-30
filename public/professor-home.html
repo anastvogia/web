@@ -129,6 +129,13 @@ async function loadTheses(status = '', role = '') {
         });
       });
 
+      document.querySelectorAll('.edit-thesis').forEach(button => {
+             button.addEventListener('click', (e) => {
+               const thesisId = e.target.getAttribute('data-id');
+               openEditForm(thesisId);
+             });
+           });
+
     } else {
       alert('Failed to load theses.');
     }
@@ -296,6 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
+
+
 
   <div id="edit-thesis-container" class="container mt-4 d-none">
   <h2 class="mb-4">Edit Thesis</h2>
@@ -606,7 +615,30 @@ async function cancelAssignment(thesisId) {
 
 
 
-  </script>  
+  </script>
+
+<script>
+  document.addEventListener('click', async (e) => {
+  if (e.target.classList.contains('view-draft')) {
+    console.log('Button clicked!'); // Debugging line
+    const thesisId = e.target.getAttribute('data-id');
+    console.log('Thesis ID:', thesisId); // Debugging line
+    try {
+      const res = await fetch(`/api/thesis/${thesisId}/draft`);
+      const data = await res.json();
+
+      if (data.success) {
+        window.open(data.draftFilePath, '_blank');
+      } else {
+        alert(data.error || 'Failed to fetch draft.');
+      }
+    } catch (err) {
+      console.error('Error fetching draft:', err);
+      alert('An error occurred while fetching the draft.');
+    }
+  }
+});
+</script>
   
   <div class="container py-4">
     <h2 class="mb-4">Your Invitations</h2>
