@@ -1,0 +1,209 @@
+<!-- thesis-details.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Thesis Details</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
+</head>
+
+<body class="bg-light">
+  <div class="container mt-5">
+    <div class="card shadow-sm mb-4">
+      <div class="card-header bg-primary text-white">
+        <h2 class="mb-0 text-center">Thesis Details</h2>
+      </div>
+      <div class="card-body">
+        <div id="thesis-info" class="mb-4"></div>
+        
+        <div id="timeline-section" class="mb-4">
+          <h4 class="text-secondary mb-3">Status Timeline</h4>
+          <ul class="list-group" id="status-timeline"></ul>
+        </div>
+
+        <div id="final-info" class="mb-4 d-none">
+          <h4 class="text-secondary mb-3">Final Information</h4>
+
+          <div class="mb-3">
+            <p class="mb-1"><strong>Final Grade:</strong></p>
+            <span class="badge bg-success fs-5" id="final-grade">N/A</span>
+          </div>
+
+          <button id="download-grades-btn" class="btn btn-outline-dark btn-sm mb-4">
+            <i class="bi bi-download"></i> Download Grades (.txt)
+          </button>
+
+          <div class="border-top pt-3">
+            <h5 class="mb-3">Links</h5>
+            <p>
+              <strong>Exam Link:</strong><br>
+              <a href="#" id="exam-link" target="_blank" class="text-decoration-underline text-primary">N/A</a>
+            </p>
+            <p>
+              <strong>Nemertis Link:</strong><br>
+              <a href="#" id="nemertis-link" target="_blank" class="text-decoration-underline text-primary">N/A</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const thesisId = new URLSearchParams(window.location.search).get('id');
+      if (!thesisId) {
+        alert('No thesis ID provided.');
+        return;
+      }
+
+      try {
+        const res = await fetch(`/api/thesis/${thesisId}/details`);
+        const data = await res.json();
+
+        if (!data.success) {
+          alert('Failed to load thesis data.');
+          return;
+        }
+
+        const thesis = data.thesis;
+        const infoDiv = document.getElementById('thesis-info');
+        infoDiv.innerHTML = `
+          <h3>${thesis.title}</h3>
+          <p><strong>Student:</strong> ${thesis.student_name || 'N/A'}</p>
+          <p><strong>Committee:</strong> ${thesis.committee || 'N/A'}</p>
+          <p><strong>Status:</strong> ${thesis.status}</p>
+        `;
+
+        const timelineList = document.getElementById('status-timeline');
+        data.timeline.forEach(item => {
+          const li = document.createElement('li');
+          li.className = 'list-group-item';
+          li.textContent = `${item.old_status} → ${item.new_status} at ${new Date(item.changed_at).toLocaleString()}`;
+          timelineList.appendChild(li);
+        });
+
+        if (thesis.status === 'completed') {
+          document.getElementById('final-info').classList.remove('d-none');
+          const finalGradeSpan = document.getElementById('final-grade');
+          const grade = parseFloat(thesis.final_grade);
+
+          if (!isNaN(grade)) {
+            finalGradeSpan.textContent = grade.toFixed(1);
+            
+            // Remove any existing badge color
+            finalGradeSpan.classList.remove('bg-danger', 'bg-warning', 'bg-success');
+
+            // Apply color based on value
+            if (grade < 5) {
+              finalGradeSpan.classList.add('bg-danger');
+            } else if (grade < 7) {
+              finalGradeSpan.classList.add('bg-warning', 'text-dark'); // orange
+            } else {
+              finalGradeSpan.classList.add('bg-success');
+            }
+          } else {
+            finalGradeSpan.textContent = 'N/A';
+            finalGradeSpan.classList.remove('bg-danger', 'bg-warning', 'bg-success');
+          }
+
+        }
+
+      } catch (err) {
+        console.error('Error:', err);
+        alert('Error loading data.');
+      }
+    });
+
+    document.addEventListener('DOMContentLoaded', async () => {
+  const thesisId = new URLSearchParams(window.location.search).get('id');
+  if (!thesisId) {
+    alert('No thesis ID provided.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/thesis/${thesisId}/committee-grades`);
+    const data = await res.json();
+
+    if (!data.success) {
+      alert('Failed to load grades.');
+      return;
+    }
+
+    const grades = data.grades;
+    const titleRes = await fetch(`/api/thesis/${thesisId}`);
+    const thesisData = await titleRes.json();
+    const thesisTitle = thesisData.title || 'Untitled';
+
+    // Store data globally for use in download
+    window.loadedGrades = grades;
+    window.loadedTitle = thesisTitle;
+    window.loadedThesisId = thesisId;
+
+  } catch (err) {
+    console.error('Error loading grades:', err);
+    alert('An error occurred while loading grades.');
+  }
+});
+
+document.getElementById('download-grades-btn').addEventListener('click', () => {
+  const grades = window.loadedGrades;
+  const thesisTitle = window.loadedTitle;
+  const thesisId = window.loadedThesisId;
+
+  if (!grades || grades.length === 0) {
+    alert('No grades available to download.');
+    return;
+  }
+
+  let content = `Grades for Thesis: "${thesisTitle}"\n\n`;
+
+  grades.forEach(grade => {
+    content += `Professor: ${grade.professor}\n`;
+    content += `  - Quality Grade: ${grade.quality_grade}\n`;
+    content += `  - Duration Grade: ${grade.duration_grade}\n`;
+    content += `  - Text Quality Grade: ${grade.text_quality_grade}\n`;
+    content += `  - Presentation Grade: ${grade.presentation_grade}\n`;
+    content += `  - Comments: ${grade.comments || 'None'}\n\n`;
+  });
+
+  const blob = new Blob([content], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `thesis-${thesisId}-grades.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+document.addEventListener('DOMContentLoaded', async () => {
+  const thesisId = new URLSearchParams(window.location.search).get('id');
+  if (!thesisId) {
+    alert('No thesis ID provided.');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/thesis/${thesisId}`);
+    const thesis = await res.json();
+
+    // Existing population code...
+    document.getElementById('exam-link').href = thesis.exam_link || '#';
+    document.getElementById('exam-link').textContent = thesis.exam_link || 'N/A';
+
+    document.getElementById('nemertis-link').href = thesis.nemertis_link || '#';
+    document.getElementById('nemertis-link').textContent = thesis.nemertis_link || 'N/A';
+  } catch (err) {
+    console.error('Error loading thesis data:', err);
+    alert('Failed to load thesis details.');
+  }
+});
+
+
+  </script>
+</body>
+</html>
