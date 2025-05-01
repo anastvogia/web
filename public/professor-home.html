@@ -61,7 +61,7 @@ async function loadTheses(status = '', role = '') {
       data.theses.forEach(thesis => {
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td>${thesis.title}</td>
+          <td><a href="thesis-details.html?id=${thesis.id}" class="text-decoration-none">${thesis.title}</a></td>
           <td>${thesis.description}</td>
           <td>${thesis.status}</td>
           <td>${thesis.role}</td>

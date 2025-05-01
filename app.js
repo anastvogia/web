@@ -1960,6 +1960,67 @@ app.get('/api/professor-avg-grades', async (req, res) => {
   }
 });
 
+app.get('/api/thesis/:id/details', async (req, res) => {
+  const thesisId = req.params.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Fetch thesis core details and student info
+    const [[thesis]] = await connection.query(`
+      SELECT 
+        t.id,
+        t.title,
+        t.description,
+        t.status,
+        t.committee,
+        u.username AS student_name
+      FROM thesis t
+      LEFT JOIN users u ON t.student_id = u.id
+      WHERE t.id = ?
+    `, [thesisId]);
+
+    if (!thesis) {
+      await connection.end();
+      return res.status(404).json({ success: false, message: 'Thesis not found' });
+    }
+
+    // Fetch status history (timeline)
+    const [timeline] = await connection.query(`
+      SELECT old_status, new_status, changed_at
+      FROM thesis_status_history
+      WHERE thesis_id = ?
+      ORDER BY changed_at ASC
+    `, [thesisId]);
+
+    // Fetch average final grade
+    const [[gradeData]] = await connection.query(`
+      SELECT 
+        ROUND(AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4), 2) AS final_grade
+      FROM committee_grades
+      WHERE thesis_id = ?
+    `, [thesisId]);
+
+    // Attach final_grade to the thesis object
+    thesis.final_grade = gradeData.final_grade || null;
+
+    await connection.end();
+
+    res.json({
+      success: true,
+      thesis,
+      timeline,
+      final_grade: gradeData.final_grade || null
+    });
+
+  } catch (err) {
+    console.error('Error loading thesis details:', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
+
 app.get('/api/professor-theses-details', async (req, res) => {
   if (!req.session.user || req.session.user.role !== 'professor') {
     return res.status(403).json({ success: false, message: 'Unauthorized' });
