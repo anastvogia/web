@@ -1960,7 +1960,145 @@ app.get('/api/professor-avg-grades', async (req, res) => {
   }
 });
 
+app.get('/api/professor-theses-details', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
 
+  const professorId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Fetch all theses for the professor
+    const [theses] = await connection.query(`
+      SELECT 
+        t.id,
+        t.title,
+        t.description,
+        t.status,
+        t.committee,
+        u.username AS student_name
+      FROM thesis t
+      LEFT JOIN users u ON t.student_id = u.id
+      WHERE t.professor_id = ?
+    `, [professorId]);
+
+    // Fetch additional details for each thesis
+    for (const thesis of theses) {
+      // Fetch status history (timeline)
+      const [timeline] = await connection.query(`
+        SELECT old_status, new_status, changed_at
+        FROM thesis_status_history
+        WHERE thesis_id = ?
+        ORDER BY changed_at ASC
+      `, [thesis.id]);
+
+      // Fetch average final grade
+      const [[gradeData]] = await connection.query(`
+        SELECT 
+          ROUND(AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4), 2) AS final_grade
+        FROM committee_grades
+        WHERE thesis_id = ?
+      `, [thesis.id]);
+
+      // Attach additional data to the thesis object
+      thesis.timeline = timeline;
+      thesis.final_grade = gradeData ? gradeData.final_grade : null;
+    }
+
+    await connection.end();
+
+    res.json({ success: true, theses });
+  } catch (error) {
+    console.error('Error fetching professor theses details:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
+app.get('/api/export-theses/:format', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'professor') {
+    return res.status(403).json({ success: false, message: 'Unauthorized' });
+  }
+
+  // const format = req.params.format; // Get format from the endpoint parameter
+  // if (!['csv', 'json'].includes(format)) {
+  //   return res.status(400).json({ success: false, message: 'Invalid format. Use "csv" or "json".' });
+  // }
+  const format = req.params.format === 'csv' ? 'csv' : 'json'; // Default to JSON if not CSV
+  const professorId = req.session.user.id;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    // Fetch all theses for the professor
+    const [theses] = await connection.query(`
+      SELECT 
+        t.id,
+        t.title,
+        t.description,
+        t.status,
+        t.committee,
+        u.username AS student_name
+      FROM thesis t
+      LEFT JOIN users u ON t.student_id = u.id
+      WHERE t.professor_id = ?
+    `, [professorId]);
+
+    // Fetch additional details for each thesis
+    for (const thesis of theses) {
+      const [timeline] = await connection.query(`
+        SELECT old_status, new_status, changed_at
+        FROM thesis_status_history
+        WHERE thesis_id = ?
+        ORDER BY changed_at ASC
+      `, [thesis.id]);
+
+      const [[gradeData]] = await connection.query(`
+        SELECT 
+          ROUND(AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4), 2) AS final_grade
+        FROM committee_grades
+        WHERE thesis_id = ?
+      `, [thesis.id]);
+
+      thesis.timeline = timeline;
+      thesis.final_grade = gradeData ? gradeData.final_grade : null;
+    }
+
+    await connection.end();
+
+    if (format === 'csv') {
+      // Convert data to CSV
+      const csvHeaders = ['ID', 'Title', 'Description', 'Status', 'Committee', 'Student Name', 'Final Grade'];
+      const csvRows = theses.map(thesis => [
+        thesis.id,
+        thesis.title,
+        thesis.description,
+        thesis.status,
+        thesis.committee || 'N/A',
+        thesis.student_name || 'N/A',
+        thesis.final_grade || 'N/A'
+      ]);
+
+      const csvContent = [
+        csvHeaders.join(','),
+        ...csvRows.map(row => row.map(value => `"${value}"`).join(','))
+      ].join('\n');
+
+      res.setHeader('Content-Type', 'text/csv');
+      res.setHeader('Content-Disposition', 'attachment; filename="theses.csv"');
+      res.send(csvContent);
+    } else {
+      // Return data as JSON
+      res.setHeader('Content-Type', 'application/json');
+      res.setHeader('Content-Disposition', 'attachment; filename="theses.json"');
+      res.send(theses.map(thesis => JSON.stringify(thesis, null, 2)).join('\n\n'));
+    }
+  } catch (error) {
+    console.error('Error exporting theses:', error);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
 
 // Start the server
 app.listen(PORT, () => {
