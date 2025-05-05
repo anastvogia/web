@@ -2161,6 +2161,36 @@ app.get('/api/export-theses/:format', async (req, res) => {
   }
 });
 
+app.get('/api/announcements', async (req, res) => {
+    const { startDate, endDate } = req.query;
+
+    try {
+        const connection = await mysql.createConnection(dbConfig);
+        let query = `
+            SELECT announcement_text AS text, exam_date
+            FROM thesis
+            WHERE announcement_text IS NOT NULL AND announcement_text != ''
+        `;
+        const params = [];
+
+        if (startDate) {
+            query += " AND exam_date >= ?";
+            params.push(startDate);
+        }
+        if (endDate) {
+            query += " AND exam_date <= ?";
+            params.push(endDate);
+        }
+
+        const [rows] = await connection.query(query, params);
+        await connection.end();
+        res.json(rows);
+    } catch (error) {
+        console.error("Error fetching announcements:", error);
+        res.status(500).json({ error: "Failed to fetch announcements" });
+    }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
