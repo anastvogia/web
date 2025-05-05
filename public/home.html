@@ -25,12 +25,13 @@
                     } else {
                         announcements.forEach(({ text, exam_date }) => {
                             const tile = document.createElement("div");
+                            const trimmedDate = exam_date.slice(0, 16).replace('T', ' ');
                             tile.className = "col-md-4 mb-3";
                             tile.innerHTML = `
                                 <div class="card shadow-sm">
                                     <div class="card-body">
                                         <p class="card-text">${text}</p>
-                                        <small class="text-muted">Exam Date: ${exam_date}</small>
+                                        <small class="text-muted">Exam Date: ${trimmedDate}</small>
                                     </div>
                                 </div>
                             `;
