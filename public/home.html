@@ -50,6 +50,18 @@
                 fetchAnnouncements(startDate, endDate);
             });
 
+            document.getElementById("export-json").addEventListener("click", () => {
+                const startDate = document.getElementById("start-date").value;
+                const endDate = document.getElementById("end-date").value;
+                window.open(`/api/announcements/export?format=json&startDate=${startDate}&endDate=${endDate}`, '_blank');
+            });
+
+            document.getElementById("export-xml").addEventListener("click", () => {
+                const startDate = document.getElementById("start-date").value;
+                const endDate = document.getElementById("end-date").value;
+                window.open(`/api/announcements/export?format=xml&startDate=${startDate}&endDate=${endDate}`, '_blank');
+            });
+
             fetchAnnouncements(); // Initial fetch
         });
     </script>
@@ -77,6 +89,10 @@
                 <button type="submit" class="btn btn-primary w-100">Filter</button>
             </div>
         </form>
+        <div class="d-flex justify-content-end mb-4">
+            <button id="export-json" class="btn btn-outline-success me-2">Export as JSON</button>
+            <button id="export-xml" class="btn btn-outline-info">Export as XML</button>
+        </div>
         <div class="row" id="announcements">
             <!-- Announcements will be dynamically inserted here -->
         </div>

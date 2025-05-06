@@ -2191,6 +2191,50 @@ app.get('/api/announcements', async (req, res) => {
     }
 });
 
+// Endpoint to export announcements
+app.get('/api/announcements/export', async (req, res) => {
+  const { format, startDate, endDate } = req.query;
+
+  if (!format || !['json', 'xml'].includes(format)) {
+    return res.status(400).json({ error: 'Invalid format. Use "json" or "xml".' });
+  }
+
+  try {
+    // Fetch announcements based on the date range
+    const announcements = await getAnnouncements(startDate, endDate); // Replace with actual DB query or logic
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      return res.json(announcements);
+    } else if (format === 'xml') {
+      const xml = `
+        <announcements>
+          ${announcements.map(a => `
+            <announcement>
+              <text>${a.text}</text>
+              <exam_date>${a.exam_date}</exam_date>
+            </announcement>
+          `).join('')}
+        </announcements>
+      `;
+      res.setHeader('Content-Type', 'application/xml');
+      return res.send(xml.trim());
+    }
+  } catch (error) {
+    console.error('Error exporting announcements:', error);
+    res.status(500).json({ error: 'Failed to export announcements.' });
+  }
+});
+
+// Mock function to simulate fetching announcements
+async function getAnnouncements(startDate, endDate) {
+  // Replace this with actual database logic
+  return [
+    { text: 'Announcement 1', exam_date: '2023-10-01T10:00:00' },
+    { text: 'Announcement 2', exam_date: '2023-10-02T14:00:00' }
+  ].filter(a => (!startDate || a.exam_date >= startDate) && (!endDate || a.exam_date <= endDate));
+}
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
