@@ -2200,8 +2200,25 @@ app.get('/api/announcements/export', async (req, res) => {
   }
 
   try {
-    // Fetch announcements based on the date range
-    const announcements = await getAnnouncements(startDate, endDate); // Replace with actual DB query or logic
+    const connection = await mysql.createConnection(dbConfig);
+    let query = `
+        SELECT announcement_text AS text, exam_date
+        FROM thesis
+        WHERE announcement_text IS NOT NULL AND announcement_text != ''
+    `;
+    const params = [];
+
+    if (startDate) {
+      query += " AND exam_date >= ?";
+      params.push(startDate);
+    }
+    if (endDate) {
+      query += " AND exam_date <= ?";
+      params.push(endDate);
+    }
+
+    const [announcements] = await connection.query(query, params);
+    await connection.end();
 
     if (format === 'json') {
       res.setHeader('Content-Type', 'application/json');
@@ -2225,15 +2242,6 @@ app.get('/api/announcements/export', async (req, res) => {
     res.status(500).json({ error: 'Failed to export announcements.' });
   }
 });
-
-// Mock function to simulate fetching announcements
-async function getAnnouncements(startDate, endDate) {
-  // Replace this with actual database logic
-  return [
-    { text: 'Announcement 1', exam_date: '2023-10-01T10:00:00' },
-    { text: 'Announcement 2', exam_date: '2023-10-02T14:00:00' }
-  ].filter(a => (!startDate || a.exam_date >= startDate) && (!endDate || a.exam_date <= endDate));
-}
 
 // Start the server
 app.listen(PORT, () => {
