@@ -277,9 +277,18 @@ app.get('/api/thesis/:id', async (req, res) => {
     `, [thesisId]);
 
     const [grades] = await connection.query(`
-      SELECT *
-      FROM committee_grades
-      WHERE thesis_id = ?
+    SELECT 
+      cg.professor_id,
+      u.username AS professor,
+      cg.quality_grade,
+      cg.duration_grade,
+      cg.text_quality_grade,
+      cg.presentation_grade,
+      cg.final_grade,
+      cg.comments
+    FROM committee_grades cg
+    JOIN users u ON cg.professor_id = u.id
+    WHERE cg.thesis_id = ?
     `, [thesisId]);
 
     await connection.end();
@@ -2275,6 +2284,30 @@ app.post('/api/set-links', async (req, res) => {
     res.status(500).json({ error: 'Failed to save links' });
   }
 });
+
+// GET /api/student-thesis-id/:studentId
+app.get('/api/student-thesis-id', async (req, res) => {
+  const studentId = req.session.user.id; // Use session ID instead of URL parameter
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    const [rows] = await connection.query(
+      'SELECT id FROM thesis WHERE student_id = ? LIMIT 1',
+      [studentId]
+    );
+    await connection.end();
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Thesis not found for this student.' });
+    }
+
+    res.json({ success: true, thesisId: rows[0].id });
+  } catch (err) {
+    console.error('Error fetching thesis ID:', err);
+    res.status(500).json({ success: false, message: 'Server error.' });
+  }
+});
+
 
 // Start the server
 app.listen(PORT, () => {

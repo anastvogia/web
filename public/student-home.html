@@ -149,9 +149,48 @@
             
           </div>
 
-           <a href="/api/exam-report" target="_blank" class="btn btn-outline-secondary btn-sm mb-2">View Exam Report</a> 
-        </div>
-
+          <!-- <a id="student-thesis-link" href="#" class="btn btn-primary">View My Thesis</a> -->
+          <a id="exam-report-btn" href="/api/exam-report" target="_blank" class="btn btn-outline-secondary btn-sm mb-2 d-none">View Exam Report</a>
+          
+          
+          <script>
+            document.addEventListener('DOMContentLoaded', async () => {
+              try {
+  
+                const res = await fetch('/api/student-thesis-id');
+                const data = await res.json();
+                console.log('Thesis ID data:', data);
+          
+                if (data.success && data.thesisId) {
+                  const thesisId = data.thesisId;
+          
+  
+                  const link = document.getElementById('student-thesis-link');
+                  if (link) {
+                    link.href = `/thesis-details.html?id=${thesisId}`;
+                  }
+          
+                  const thesisRes = await fetch(`/api/thesis/${thesisId}`);
+                  const thesis = await thesisRes.json();
+                  console.log('Thesis data:', thesis);
+          
+                  if (
+                    Array.isArray(thesis.committee_grades) &&
+                    thesis.committee_grades.length > 0 &&
+                    (thesis.status === 'under_review' || thesis.status === 'completed')
+                  ) {
+                    document.getElementById('exam-report-btn')?.classList.remove('d-none');
+                  }
+                } else {
+                  console.warn('Thesis not found for this student.');
+                }
+              } catch (err) {
+                console.error('Error fetching thesis or grades:', err);
+              }
+            });
+          </script>
+          
+            
         <div id="completed" class="mt-4 card-body">
           <h5>Completed</h5>
           <p>View final thesis info and report.</p>
