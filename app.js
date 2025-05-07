@@ -1530,46 +1530,6 @@ You are invited to attend the presentation.
   }
 });
 
-
-app.get('/api/professor-theses-filtered', async (req, res) => {
-  if (!req.session.user || req.session.user.role !== 'professor') {
-    return res.status(403).json({ success: false, message: 'Unauthorized' });
-  }
-
-  try {
-    const connection = await mysql.createConnection(dbConfig);
-    const professorId = req.session.user.id;
-
-    const [theses] = await connection.query(`
-      SELECT 
-        t.id,
-        t.title,
-        t.description,
-        t.status,
-        t.exam_date,
-        t.exam_mode,
-        t.exam_location,
-        t.exam_link,
-        CASE 
-          WHEN t.professor_id = ? THEN 'Supervisor'
-          ELSE 'Committee Member'
-        END AS role
-      FROM thesis t
-      LEFT JOIN committee_invites ci ON t.id = ci.thesis_id
-      WHERE t.professor_id = ? OR ci.professor_id = ?
-      GROUP BY t.id
-    `, [professorId, professorId, professorId]);
-
-    await connection.end();
-
-    res.json({ success: true, theses });
-
-  } catch (err) {
-    console.error('Error fetching filtered theses:', err);
-    res.status(500).json({ success: false, message: 'Server error' });
-  }
-});
-
 app.get('/api/professor-announcements', async (req, res) => {
   if (!req.session.user || req.session.user.role !== 'professor') {
     return res.status(403).json({ success: false, message: 'Unauthorized' });
