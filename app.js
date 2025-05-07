@@ -276,6 +276,12 @@ app.get('/api/thesis/:id', async (req, res) => {
       WHERE ci.thesis_id = ? AND ci.status = 'accepted'
     `, [thesisId]);
 
+    const [grades] = await connection.query(`
+      SELECT *
+      FROM committee_grades
+      WHERE thesis_id = ?
+    `, [thesisId]);
+
     await connection.end();
 
     // Prepare committee names
@@ -283,6 +289,9 @@ app.get('/api/thesis/:id', async (req, res) => {
 
     // Add committee list to thesis
     thesis.committee_names = committeeList || 'Pending';
+
+    thesis.committee_grades = grades;
+
 
     res.json(thesis);
   } catch (err) {

@@ -135,60 +135,71 @@
 
   </script>
   
-<script>
-  document.addEventListener('DOMContentLoaded', async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const thesisId = urlParams.get('id');
-  
-    if (!thesisId) {
-      console.error('No thesis ID provided.');
-      return;
-    }
-  
-    try {
-      const res = await fetch(`/api/thesis/${thesisId}`, { credentials: 'include' });
-      const thesis = await res.json();
-  
-      document.getElementById('thesis-title').textContent = thesis.title;
-      document.getElementById('thesis-status').textContent = thesis.status;
-      document.getElementById('thesis-assigned-date').textContent = thesis.assigned_date;
-      document.getElementById('thesis-description').textContent = thesis.description;
-      document.getElementById('thesis-committee').textContent = thesis.committee || 'Pending';
-  
-      if (thesis.status.trim().toLowerCase() === 'under_review') {
-        document.getElementById('complete-button-container').classList.remove('d-none');
-      } else {
-        document.getElementById('complete-button-container').classList.add('d-none');
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const thesisId = new URLSearchParams(window.location.search).get('id');
+    
+      if (!thesisId) {
+        console.error('No thesis ID provided.');
+        return;
       }
-  
-      document.getElementById('mark-completed-btn')?.addEventListener('click', async () => {
-        const confirmed = confirm('Are you sure you want to mark this thesis as completed?');
-        if (!confirmed) return;
-  
-        try {
-          const res = await fetch('/api/mark-completed', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ thesisId })
-          });
-  
-          const result = await res.json();
-          alert(result.success ? 'Thesis marked as completed.' : result.message || 'Failed to update.');
-          if (result.success) {
-            location.reload();
-          }
-        } catch (err) {
-          console.error('Error updating thesis:', err);
-          alert('Failed to complete the thesis.');
+    
+      try {
+        const res = await fetch(`/api/thesis/${thesisId}`, { credentials: 'include' });
+        const thesis = await res.json();
+    
+        // Fill in the thesis info
+        document.getElementById('thesis-title').textContent = thesis.title;
+        document.getElementById('thesis-status').textContent = thesis.status;
+        document.getElementById('thesis-assigned-date').textContent = thesis.assigned_date || 'N/A';
+        document.getElementById('thesis-description').textContent = thesis.description || 'N/A';
+        document.getElementById('thesis-committee').textContent = thesis.committee || 'Pending';
+    
+        // DEBUG
+        console.log("Status:", thesis.status);
+        console.log("Nemertis Link:", thesis.nemertis_link);
+        console.log("Grades:", thesis.committee_grades);
+    
+        // Conditionally show the "Mark as Completed" button
+        if (
+          thesis.status?.trim().toLowerCase() === 'under_review' &&
+          thesis.nemertis_link?.trim() !== '' &&
+          Array.isArray(thesis.committee_grades) &&
+          thesis.committee_grades.length > 0
+        ) {
+          document.getElementById('complete-button-container').classList.remove('d-none');
         }
-      });
-  
-    } catch (err) {
-      console.error('Error loading thesis:', err);
-      alert('Could not load thesis.');
-    }
-  });
-  </script>
+    
+        // Handle the complete button
+        document.getElementById('mark-completed-btn')?.addEventListener('click', async () => {
+          const confirmed = confirm('Are you sure you want to mark this thesis as completed?');
+          if (!confirmed) return;
+    
+          try {
+            const res = await fetch('/api/mark-completed', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ thesisId })
+            });
+    
+            const result = await res.json();
+            alert(result.success ? 'Thesis marked as completed.' : result.message || 'Failed to update.');
+            if (result.success) {
+              location.reload();
+            }
+          } catch (err) {
+            console.error('Error updating thesis:', err);
+            alert('Failed to complete the thesis.');
+          }
+        });
+    
+      } catch (err) {
+        console.error('Error loading thesis:', err);
+        alert('Could not load thesis.');
+      }
+    });
+    </script>
+    
   
   
   <script>
