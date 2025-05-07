@@ -2243,6 +2243,30 @@ app.get('/api/announcements/export', async (req, res) => {
   }
 });
 
+app.post('/api/set-links', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const { links } = req.body;
+  const studentId = req.session.user.id;
+
+  console.log(`Student ${studentId} submitted links:\n${links}`);
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    await connection.query(
+      'UPDATE thesis SET additional_links = ? WHERE student_id = ?',
+      [links, studentId]
+    );
+    await connection.end();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to save links' });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
