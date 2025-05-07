@@ -2200,6 +2200,82 @@ app.get('/api/announcements', async (req, res) => {
     }
 });
 
+// Endpoint to export announcements
+app.get('/api/announcements/export', async (req, res) => {
+  const { format, startDate, endDate } = req.query;
+
+  if (!format || !['json', 'xml'].includes(format)) {
+    return res.status(400).json({ error: 'Invalid format. Use "json" or "xml".' });
+  }
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    let query = `
+        SELECT announcement_text AS text, exam_date
+        FROM thesis
+        WHERE announcement_text IS NOT NULL AND announcement_text != ''
+    `;
+    const params = [];
+
+    if (startDate) {
+      query += " AND exam_date >= ?";
+      params.push(startDate);
+    }
+    if (endDate) {
+      query += " AND exam_date <= ?";
+      params.push(endDate);
+    }
+
+    const [announcements] = await connection.query(query, params);
+    await connection.end();
+
+    if (format === 'json') {
+      res.setHeader('Content-Type', 'application/json');
+      return res.json(announcements);
+    } else if (format === 'xml') {
+      const xml = `
+        <announcements>
+          ${announcements.map(a => `
+            <announcement>
+              <text>${a.text}</text>
+              <exam_date>${a.exam_date}</exam_date>
+            </announcement>
+          `).join('')}
+        </announcements>
+      `;
+      res.setHeader('Content-Type', 'application/xml');
+      return res.send(xml.trim());
+    }
+  } catch (error) {
+    console.error('Error exporting announcements:', error);
+    res.status(500).json({ error: 'Failed to export announcements.' });
+  }
+});
+
+app.post('/api/set-links', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'student') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
+
+  const { links } = req.body;
+  const studentId = req.session.user.id;
+
+  console.log(`Student ${studentId} submitted links:\n${links}`);
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+    await connection.query(
+      'UPDATE thesis SET additional_links = ? WHERE student_id = ?',
+      [links, studentId]
+    );
+    await connection.end();
+    res.json({ success: true });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to save links' });
+  }
+});
+
 // Start the server
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
