@@ -180,6 +180,17 @@ app.get('/login.html', (req, res) => {
 
 const importUpload = multer({ dest: 'uploads/' });
 
+// Function to generate a random password
+function generateRandomPassword(length = 12) {
+  const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+  let password = "";
+  for (let i = 0; i < length; i++) {
+    const randomIndex = Math.floor(Math.random() * charset.length);
+    password += charset[randomIndex];
+  }
+  return password;
+}
+
 app.post('/api/import-users', importUpload.single('file'), async (req, res) => {
   if (!req.session.user || req.session.user.role !== 'secretariat') {
     return res.status(403).json({ error: 'Unauthorized' });
@@ -196,31 +207,40 @@ app.post('/api/import-users', importUpload.single('file'), async (req, res) => {
     }
 
     const connection = await mysql.createConnection(dbConfig);
-
     let inserted = 0;
+
     for (const user of data) {
+      // Destructure user, ignoring 'password' from the JSON
       const {
-      username, password, role,
-      full_address = null, email = null, mobile_phone = null, landline = null
+        username, role,
+        full_address = null, email = null, mobile_phone = null, landline = null
       } = user;
 
       // Skip if role is not valid
       if (!['student', 'professor'].includes(role)) continue;
 
-      // Hash the password before inserting
-      const hashedPassword = await bcrypt.hash(password, 10);
+      // Generate a random password
+      const plainPassword = generateRandomPassword();
+      console.log(plainPassword);
+      // Hash the generated password
+      const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
       await connection.query(`
-      INSERT INTO users (username, password, role, full_address, email, mobile_phone, landline)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO users (username, password, role, full_address, email, mobile_phone, landline)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
       `, [username, hashedPassword, role, full_address, email, mobile_phone, landline]);
 
+      // Store the username and plain password for returning to secretariat
       inserted++;
     }
 
     await connection.end();
     fs.unlinkSync(filePath); // cleanup
-    res.json({ success: true, count: inserted });
+
+    res.json({
+      success: true,
+      count: inserted,
+    });
   } catch (err) {
     console.error(err);
     res.status(500).json({ success: false, message: 'Import failed.' });
