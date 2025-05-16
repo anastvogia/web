@@ -210,32 +210,32 @@ app.post('/api/import-users', importUpload.single('file'), async (req, res) => {
     let inserted = 0;
 
     for (const user of data) {
-      // Destructure user, ignoring 'password' from the JSON
       const {
-        username, role,
-        full_address = null, email = null, mobile_phone = null, landline = null
+        email, role,
+        full_address = null, mobile_phone = null, landline = null
       } = user;
 
-      // Skip if role is not valid
-      if (!['student', 'professor'].includes(role)) continue;
+      // Skip if role is not valid or email is missing
+      if (!['student', 'professor'].includes(role) || !email) continue;
 
       // Generate a random password
       const plainPassword = generateRandomPassword();
-      console.log(plainPassword);
+      console.log(`Generated password for ${email}: ${plainPassword}`);
+
       // Hash the generated password
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
+      // Use email as the username
       await connection.query(`
         INSERT INTO users (username, password, role, full_address, email, mobile_phone, landline)
         VALUES (?, ?, ?, ?, ?, ?, ?)
-      `, [username, hashedPassword, role, full_address, email, mobile_phone, landline]);
+      `, [email, hashedPassword, role, full_address, email, mobile_phone, landline]);
 
-      // Store the username and plain password for returning to secretariat
       inserted++;
     }
 
     await connection.end();
-    fs.unlinkSync(filePath); // cleanup
+    fs.unlinkSync(filePath); // Cleanup uploaded file
 
     res.json({
       success: true,
@@ -2284,7 +2284,7 @@ app.get('/api/student-thesis-id', async (req, res) => {
     res.json({ success: true, thesisId: rows[0].id });
   } catch (err) {
     console.error('Error fetching thesis ID:', err);
-    res.status(500).json({ success: false, message: 'Server error.' });
+    res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 
