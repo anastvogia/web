@@ -15,7 +15,7 @@
                     const response = await fetch(`/api/announcements?startDate=${startDate}&endDate=${endDate}`);
                     const announcements = await response.json();
 
-                    announcementsContainer.innerHTML = ""; // Clear previous results
+                    announcementsContainer.innerHTML = "";
                     if (announcements.length === 0) {
                         announcementsContainer.innerHTML = `
                             <div class="col-12 text-center text-muted">
@@ -62,7 +62,7 @@
                 window.open(`/api/announcements/export?format=xml&startDate=${startDate}&endDate=${endDate}`, '_blank');
             });
 
-            fetchAnnouncements(); // Initial fetch
+            fetchAnnouncements();
         });
     </script>
 </head>
@@ -94,7 +94,6 @@
             <button id="export-xml" class="btn btn-outline-info">Export as XML</button>
         </div>
         <div class="row" id="announcements">
-            <!-- Announcements will be dynamically inserted here -->
         </div>
     </div>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
