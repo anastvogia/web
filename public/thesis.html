@@ -212,6 +212,7 @@
   window.addEventListener('DOMContentLoaded', () => {
     const thesisId = new URLSearchParams(window.location.search).get('id');
     if (thesisId) {
+      document.getElementById('thesis_id').value = thesisId; // Add this line to populate the hidden field
       fetch(`/api/thesis/${thesisId}`)
         .then(res => {
           if (!res.ok) {
