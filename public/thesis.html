@@ -19,7 +19,6 @@
   </nav>
   
   <script>
-    // Fetch and display the current user's username
     window.addEventListener('DOMContentLoaded', () => {
       fetch('/api/check-session')
         .then(res => res.json())
@@ -31,7 +30,6 @@
           }
         });
   
-      // Handle logout
       document.getElementById('logout-btn').addEventListener('click', () => {
         fetch('/api/logout', { method: 'POST' })
           .then(() => window.location.href = '/login.html');
@@ -148,19 +146,12 @@
         const res = await fetch(`/api/thesis/${thesisId}`, { credentials: 'include' });
         const thesis = await res.json();
     
-        // Fill in the thesis info
         document.getElementById('thesis-title').textContent = thesis.title;
         document.getElementById('thesis-status').textContent = thesis.status;
         document.getElementById('thesis-assigned-date').textContent = thesis.assigned_date || 'N/A';
         document.getElementById('thesis-description').textContent = thesis.description || 'N/A';
         document.getElementById('thesis-committee').textContent = thesis.committee || 'Pending';
     
-        // DEBUG
-        console.log("Status:", thesis.status);
-        console.log("Nemertis Link:", thesis.nemertis_link);
-        console.log("Grades:", thesis.committee_grades);
-    
-        // Conditionally show the "Mark as Completed" button
         if (
           thesis.status?.trim().toLowerCase() === 'under_review' &&
           thesis.nemertis_link?.trim() !== '' &&
@@ -170,7 +161,6 @@
           document.getElementById('complete-button-container').classList.remove('d-none');
         }
     
-        // Handle the complete button
         document.getElementById('mark-completed-btn')?.addEventListener('click', async () => {
           const confirmed = confirm('Are you sure you want to mark this thesis as completed?');
           if (!confirmed) return;
@@ -203,19 +193,17 @@
   
   
   <script>
-    // Check if the user is logged in and has the 'secretariat' role
     window.addEventListener('DOMContentLoaded', () => {
-      fetch('/api/check-session') // Send a request to check the session
+      fetch('/api/check-session')
         .then(res => res.json())
         .then(data => {
           if (!data.loggedIn || data.role !== 'secretariat') {
-            // If not logged in or incorrect role, redirect to login
             window.location.href = '/login.html';
           }
         })
         .catch(err => {
           console.error('Error checking session:', err);
-          window.location.href = '/login.html'; // Redirect to login if there's an error
+          window.location.href = '/login.html';
         });
     });
   </script>
@@ -276,7 +264,5 @@
     });
   });
   </script>
-  
-
 </body>
 </html>

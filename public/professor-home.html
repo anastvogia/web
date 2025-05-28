@@ -19,7 +19,6 @@
   <div class="container mt-5">
     <h1 class="mb-4 text-center">Your Theses</h1>
 
-    <!-- Filter Form -->
     <div class="container mt-4">
       <h2 class="mb-4">Filter Theses</h2>
       <form id="filter-form" class="row g-3">
@@ -165,11 +164,9 @@ async function openGrading(thesisId) {
   }
 }
 
-// Load theses on page load
 document.addEventListener('DOMContentLoaded', () => {
   loadTheses();
 
-  // Add event listener for filter form submission
   document.getElementById('filter-form').addEventListener('submit', (e) => {
     e.preventDefault();
     const status = document.getElementById('status-filter').value;
@@ -178,7 +175,6 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 </script>
-    <!-- Theses Table -->
     <div class="table-responsive mt-4">
       <table class="table table-bordered table-hover align-middle bg-white shadow-sm rounded">
         <thead class="table-dark">
@@ -196,7 +192,6 @@ document.addEventListener('DOMContentLoaded', () => {
           </tr>
         </thead>
         <tbody id="professor-thesis-body">
-          <!-- Rows will be dynamically added here -->
         </tbody>
       </table>
     </div>
@@ -240,9 +235,7 @@ document.getElementById('export-theses-btn').addEventListener('click', async () 
 });
 </script>
 
-    <!-- Thesis Comments Section -->
     <div id="thesis-comments-section" class="d-none">
-      <!-- Thesis Comments Table -->
       <div class="table-responsive mt-4">
         <h3>Thesis Comments</h3>
         <table class="table table-bordered table-hover align-middle bg-white shadow-sm rounded">
@@ -253,12 +246,10 @@ document.getElementById('export-theses-btn').addEventListener('click', async () 
             </tr>
           </thead>
           <tbody id="thesis-comments-body">
-            <!-- Rows will be dynamically added here -->
           </tbody>
         </table>
       </div>
 
-      <!-- Add Comment Section -->
       <div class="mt-4">
         <h4>Add a Comment</h4>
         <textarea id="new-comment-text" class="form-control mb-3" rows="3" placeholder="Write your comment here..."></textarea>
@@ -274,13 +265,11 @@ document.addEventListener('DOMContentLoaded', () => {
   const commentsSection = document.getElementById('thesis-comments-section');
   let currentThesisId = null;
 
-  // Handle "View" button click
   document.addEventListener('click', async (e) => {
     if (e.target.classList.contains('view-comments')) {
-      currentThesisId = e.target.dataset.id; // Store the thesis ID
+      currentThesisId = e.target.dataset.id;
       commentsSection.classList.remove('d-none');
 
-      // Fetch and display comments
       try {
         const res = await fetch(`/api/thesis/${currentThesisId}/comments`);
         const data = await res.json();
@@ -307,7 +296,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle "Submit" button click
   document.getElementById('submit-comment-btn').addEventListener('click', async () => {
     const commentText = document.getElementById('new-comment-text').value.trim();
     if (!commentText) {
@@ -325,7 +313,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (result.success) {
         alert('Comment added successfully!');
         document.getElementById('new-comment-text').value = '';
-        document.querySelector(`button[data-id="${currentThesisId}"].view-comments`).click(); // Refresh comments
+        document.querySelector(`button[data-id="${currentThesisId}"].view-comments`).click();
       } else {
         alert('Failed to add comment.');
       }
@@ -335,7 +323,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
-  // Handle "Cancel" button click
   document.getElementById('cancel-comment-btn').addEventListener('click', () => {
     commentsSection.classList.add('d-none');
     currentThesisId = null;
@@ -416,7 +403,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
 <script>
-  // Fetch and display the current user's username
   window.addEventListener('DOMContentLoaded', () => {
     fetch('/api/check-session')
       .then(res => res.json())
@@ -428,7 +414,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
       });
 
-    // Handle logout
     document.getElementById('logout-btn').addEventListener('click', () => {
       fetch('/api/logout', { method: 'POST' })
         .then(() => window.location.href = '/login.html');
@@ -457,7 +442,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const thesisSelect = document.getElementById('thesis-select');
     const studentSelect = document.getElementById('student-select');
   
-    // Load theses
     const thesesRes = await fetch('/api/available-theses');
     const theses = await thesesRes.json();
   
@@ -468,7 +452,6 @@ document.addEventListener('DOMContentLoaded', () => {
       thesisSelect.appendChild(option);
     });
   
-    // Load students
     const studentsRes = await fetch('/api/students-without-thesis');
     const students = await studentsRes.json();
   
@@ -479,7 +462,6 @@ document.addEventListener('DOMContentLoaded', () => {
       studentSelect.appendChild(option);
     });
   
-    // Handle assign button
     document.getElementById('assign-btn').addEventListener('click', async () => {
       const thesisId = thesisSelect.value;
       const studentId = studentSelect.value;
@@ -514,12 +496,10 @@ document.addEventListener('DOMContentLoaded', () => {
         </tr>
       </thead>
       <tbody id="assignment-body">
-        <!-- Dynamic rows will be injected here -->
       </tbody>
     </table>
   </div>
   
-  <!-- Bootstrap Modal for Confirm Cancellation -->
   <div class="modal fade" id="confirmCancelModal" tabindex="-1" aria-labelledby="confirmCancelModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
@@ -570,10 +550,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Cancel assignment
 async function cancelAssignment(thesisId) {
   try {
-    // Fetch the thesis data (only the status is needed)
     const thesisRes = await fetch(`/api/thesis/${thesisId}`);
     const thesis = await thesisRes.json();
 
@@ -581,9 +559,7 @@ async function cancelAssignment(thesisId) {
       return alert('Thesis not found.');
     }
 
-    // If thesis is active, check the date via status-history
     if (thesis.status === 'active') {
-      // Fetch the thesis status history
       const historyRes = await fetch(`/api/thesis/${thesisId}/status-history`);
       const history = await historyRes.json();
 
@@ -591,7 +567,6 @@ async function cancelAssignment(thesisId) {
         return alert('Failed to fetch thesis status history.');
       }
 
-      // Locate the active status change.
       const activeStatus = history.data.find(entry => entry.new_status === 'active');
       if (!activeStatus) {
         return alert('Thesis has never been marked as active.');
@@ -601,7 +576,6 @@ async function cancelAssignment(thesisId) {
       const currentDate = new Date();
       const twoYearsInMs = 2 * 365 * 24 * 60 * 60 * 1000;
 
-      // If active for more than 2 years, prompt for cancellation number and include cancellation reason
       if (currentDate - activeChangedAt > twoYearsInMs) {
         const cancelNumber = prompt('This thesis has been active for more than 2 years. Please enter the cancellation number:');
         if (!cancelNumber) {
@@ -623,17 +597,14 @@ async function cancelAssignment(thesisId) {
           alert('Failed to cancel assignment.');
         }
       } else {
-        // If active for less than 2 years, cancellation is not allowed
         alert("You can't cancel this thesis.");
       }
     } else {
-      // For non-active statuses, proceed with normal cancellation (without a cancellation reason)
       if (!confirm('Are you sure you want to cancel this assignment?')) return;
 
       const normalCancelRes = await fetch('/api/professor-cancel-assignment', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Omit the reason property so that it remains NULL in the update
         body: JSON.stringify({ thesisId })
       });
 
@@ -659,9 +630,9 @@ async function cancelAssignment(thesisId) {
 <script>
   document.addEventListener('click', async (e) => {
   if (e.target.classList.contains('view-draft')) {
-    console.log('Button clicked!'); // Debugging line
+    console.log('Button clicked!');
     const thesisId = e.target.getAttribute('data-id');
-    console.log('Thesis ID:', thesisId); // Debugging line
+    console.log('Thesis ID:', thesisId);
     try {
       const res = await fetch(`/api/thesis/${thesisId}/draft`);
       const data = await res.json();
@@ -686,7 +657,6 @@ async function cancelAssignment(thesisId) {
 
   <script>
     window.addEventListener('DOMContentLoaded', async () => {
-      // Check session
       const sessionRes = await fetch('/api/check-session');
       const sessionData = await sessionRes.json();
       if (!sessionData.loggedIn || sessionData.role !== 'professor') {
@@ -732,7 +702,7 @@ async function cancelAssignment(thesisId) {
         });
         const data = await res.json();
         alert(data.message);
-        location.reload(); // Refresh list
+        location.reload();
       }
     });
   </script>
@@ -750,7 +720,6 @@ async function cancelAssignment(thesisId) {
       </tr>
     </thead>
     <tbody id="invite-table-body">
-      <!-- JS will insert data here -->
     </tbody>
   </table>
 </div>
@@ -796,7 +765,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 
 
-// Load committee invitations
 async function loadInvitesForThesis(thesisId) {
   try {
     const res = await fetch(`/api/thesis/${thesisId}/invites`);
@@ -834,19 +802,15 @@ async function loadInvitesForThesis(thesisId) {
   </script>
 <script>
 function openEditForm(thesisId) {
-  // Fetch thesis details
   fetch(`/api/thesis/${thesisId}`)
     .then(res => res.json())
     .then(data => {
       if (data) {
-        // Populate the form fields with thesis details
         document.getElementById('edit-thesis-title').value = data.title;
         document.getElementById('edit-thesis-description').value = data.description;
         document.getElementById('edit-thesis-id').value = data.id;
 
-        // Show the edit thesis container and hide the thesis table
         document.getElementById('edit-thesis-container').classList.remove('d-none');
-        // document.querySelector('.container.mt-5').classList.add('d-none');
       } else {
         alert('Failed to fetch thesis details.');
       }
@@ -857,7 +821,6 @@ function openEditForm(thesisId) {
     });
 }
 
-// Handle form submission for editing thesis
 document.getElementById('edit-thesis-form').addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -875,7 +838,7 @@ document.getElementById('edit-thesis-form').addEventListener('submit', async (e)
     const result = await res.json();
     if (result.success) {
       alert('Thesis updated successfully!');
-      location.reload(); // Reload the page to reflect changes
+      location.reload();
     } else {
       alert('Failed to update thesis.');
     }
@@ -885,7 +848,6 @@ document.getElementById('edit-thesis-form').addEventListener('submit', async (e)
   }
 });
 
-// Cancel edit and go back to the thesis list
 document.getElementById('cancel-edit').addEventListener('click', () => {
   document.getElementById('edit-thesis-container').classList.add('d-none');
   document.querySelector('.container.mt-5').classList.remove('d-none');
@@ -904,7 +866,6 @@ document.getElementById('cancel-edit').addEventListener('click', () => {
       </tr>
     </thead>
     <tbody id="announcement-table-body">
-      <!-- JavaScript will inject rows here -->
     </tbody>
   </table>
 </div>
@@ -929,10 +890,8 @@ document.addEventListener('DOMContentLoaded', async () => {
           let announcementText = '';
 
           if (thesis.announcement_text) {
-            // If the professor has saved a custom announcement
             announcementText = thesis.announcement_text;
           } else {
-            // Otherwise, generate the default template
             const examPlace = thesis.exam_mode === 'online' 
               ? `Online Link: ${thesis.exam_link}` 
               : `Location: ${thesis.exam_location}`;
@@ -979,7 +938,6 @@ You are invited to attend the presentation.
 
 
 
-// Function to download the announcement
 function downloadAnnouncement(thesisId) {
   const textarea = document.querySelector(`textarea.announcement-textarea`);
   if (!textarea) {
@@ -1038,10 +996,8 @@ document.addEventListener('click', async (e) => {
     const gradeModal = new bootstrap.Modal(document.getElementById('gradeModal'));
     gradeModal.show();
 
-    // Reset the form whenever it's opened
     document.getElementById('grade-form').reset();
 
-    // Fetch and display committee grades
     const committeeGradesContainer = document.getElementById('committee-grades');
     committeeGradesContainer.innerHTML = '<p class="text-muted">Loading grades...</p>';
 
@@ -1075,7 +1031,6 @@ document.addEventListener('click', async (e) => {
       committeeGradesContainer.innerHTML = '<p class="text-danger">An error occurred while loading grades.</p>';
     }
 
-    // Handle grade submission
     document.getElementById('grade-form').onsubmit = async (e) => {
       e.preventDefault();
 
@@ -1085,7 +1040,6 @@ const textQualityGrade = parseInt(document.getElementById('text-quality-grade').
 const presentationGrade = parseInt(document.getElementById('presentation-grade').value, 10);
 const comments = document.getElementById('comments').value.trim();
 
-// Validate before sending
 if (
   isNaN(qualityGrade) ||
   isNaN(durationGrade) ||
@@ -1152,7 +1106,6 @@ if (
           <button type="submit" class="btn btn-primary">Submit Grades</button>
         </form>
 
-        <!-- Section to display other committee members' grades -->
         <div class="mt-4">
           <h5>Other Committee Members' Grades</h5>
           <div id="committee-grades" class="border rounded p-3 bg-light">

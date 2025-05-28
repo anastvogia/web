@@ -18,7 +18,6 @@
   </nav>
   
   <script>
-    // Fetch and display the current user's username
     window.addEventListener('DOMContentLoaded', () => {
       fetch('/api/check-session')
         .then(res => res.json())
@@ -30,7 +29,6 @@
           }
         });
   
-      // Handle logout
       document.getElementById('logout-btn').addEventListener('click', () => {
         fetch('/api/logout', { method: 'POST' })
           .then(() => window.location.href = '/login.html');
@@ -39,7 +37,6 @@
   </script>
   <div class="container my-5">
 
-    <!-- View Topic -->
     <div class="card mb-4">
       <div class="card-header bg-primary text-white">
         View Thesis Topic
@@ -59,7 +56,6 @@
     
     
 
-    <!-- Edit Profile -->
     <div class="card mb-4">
       <div class="card-header bg-success text-white">
         Edit Profile
@@ -87,13 +83,11 @@
       </div>
     </div>
 
-    <!-- Manage Thesis Work -->
     <div class="card mb-4">
       <div class="card-header bg-warning text-dark">
         Manage Thesis Work
       </div>
       <div class="card-body">
-        <!-- Show this section dynamically based on status -->
         <div id="under-assignment">
           <h5>Under Assignment</h5>
           <p>Select committee members:</p>
@@ -108,7 +102,6 @@
 
         <div id="under-examination" class="mt-4">
           <h5>Under Examination</h5>
-          <!-- Draft Upload Form -->
             <form id="draft-upload-form" enctype="multipart/form-data" class="mb-3">
               <label class="form-label">Upload Draft Thesis (PDF):</label>
               <input type="file" name="draft" class="form-control mb-2" required accept=".pdf">
@@ -119,7 +112,6 @@
               <textarea id="additional_links" class="form-control mb-2" rows="3" placeholder="https://..."></textarea>
               <button type="submit" class="btn btn-sm btn-outline-secondary">Save Links</button>
             </form>
-            <!-- Exam Details Form -->
             <form id="exam-details-form" class="mb-3">
               <label class="form-label">Exam Date & Time:</label>
               <input type="datetime-local" class="form-control mb-2" id="exam_date" required>
@@ -149,7 +141,6 @@
             
           </div>
 
-          <!-- <a id="student-thesis-link" href="#" class="btn btn-primary">View My Thesis</a> -->
           <a id="exam-report-btn" href="/api/exam-report" target="_blank" class="btn btn-outline-secondary btn-sm mb-2 d-none">View Exam Report</a>
           
           
@@ -203,14 +194,12 @@
   <script>
     window.addEventListener('DOMContentLoaded', async () => {
       try {
-        // Session check
         const sessionRes = await fetch('/api/check-session');
         const sessionData = await sessionRes.json();
         if (!sessionData.loggedIn || sessionData.role !== 'student') {
           return window.location.href = '/login.html';
         }
   
-        // Load profile info
         const profileRes = await fetch('/api/get-profile');
         const profile = await profileRes.json();
   
@@ -241,7 +230,6 @@
           }
         });
   
-        // Get current thesis
         const thesisRes = await fetch('/api/student-thesis');
         const thesis = await thesisRes.json();
         if (thesis.draft_file_path) {
@@ -250,7 +238,6 @@
         }
 
   
-        // Show only the correct section
         document.getElementById('under-assignment').style.display = 'none';
         document.getElementById('under-examination').style.display = 'none';
         document.getElementById('completed').style.display = 'none';
@@ -265,7 +252,6 @@
         if (thesis.status === 'under_review') {
           document.getElementById('under-examination').style.display = 'block';
 
-          // Show draft preview if uploaded
           if (thesis.draft_file_path) {
             document.getElementById('draft-preview').style.display = 'block';
             document.getElementById('draft-frame').src = thesis.draft_file_path;
@@ -274,7 +260,6 @@
         }
 
   
-        // Inject basic thesis info
         document.getElementById('thesis-title').textContent = thesis.title;
         document.getElementById('thesis-status').textContent = thesis.status;
         document.getElementById('thesis-assigned-date').textContent = thesis.assigned_date;
@@ -283,9 +268,7 @@
         document.getElementById('thesis-committee').textContent = thesis.committee_names || 'Pending';
 
   
-        // Handle committee invite logic
-        if (thesis.status === 'under_assignment') { //UnderExamination
-          // Load professors
+        if (thesis.status === 'under_assignment') {
           fetch('/api/professors')
             .then(res => res.json())
             .then(professors => {
@@ -319,7 +302,6 @@
               });
             });
   
-          // Load invited professors
           function loadInvites() {
             fetch('/api/my-invites')
               .then(res => res.json())
@@ -343,7 +325,7 @@
         window.location.href = '/login.html';
       }
     });
-    // --- Handle Draft Upload Form ---
+
 document.getElementById('draft-upload-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
   const formData = new FormData(e.target);
@@ -361,7 +343,6 @@ document.getElementById('draft-upload-form')?.addEventListener('submit', async (
   }
 });
 
-// --- Handle Exam Details Form ---
 document.getElementById('exam-details-form')?.addEventListener('submit', async (e) => {
   e.preventDefault();
 
