@@ -8,3 +8,13 @@
 Κολύβρας Κωνσταντίνος 1103826
 
 
+Απαιτείται αρχείο dbConfig.js με την παρακάτω δομή προκειμένου να συνδεθεί επιτυχώς με την βάση δεδομένων και να τρέξει ο κώδικας 
+module.exports = {
+    port: 'yourport',
+    host: 'yourlocalhost',
+    user: 'yourname',
+    password: 'yourpswd',
+    database: 'yourdb'
+  }
+
+
