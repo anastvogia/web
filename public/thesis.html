@@ -19,7 +19,6 @@
   </nav>
   
   <script>
-    // Fetch and display the current user's username
     window.addEventListener('DOMContentLoaded', () => {
       fetch('/api/check-session')
         .then(res => res.json())
@@ -31,7 +30,6 @@
           }
         });
   
-      // Handle logout
       document.getElementById('logout-btn').addEventListener('click', () => {
         fetch('/api/logout', { method: 'POST' })
           .then(() => window.location.href = '/login.html');
@@ -148,19 +146,12 @@
         const res = await fetch(`/api/thesis/${thesisId}`, { credentials: 'include' });
         const thesis = await res.json();
     
-        // Fill in the thesis info
         document.getElementById('thesis-title').textContent = thesis.title;
         document.getElementById('thesis-status').textContent = thesis.status;
         document.getElementById('thesis-assigned-date').textContent = thesis.assigned_date || 'N/A';
         document.getElementById('thesis-description').textContent = thesis.description || 'N/A';
         document.getElementById('thesis-committee').textContent = thesis.committee || 'Pending';
     
-        // DEBUG
-        console.log("Status:", thesis.status);
-        console.log("Nemertis Link:", thesis.nemertis_link);
-        console.log("Grades:", thesis.committee_grades);
-    
-        // Conditionally show the "Mark as Completed" button
         if (
           thesis.status?.trim().toLowerCase() === 'under_review' &&
           thesis.nemertis_link?.trim() !== '' &&
@@ -170,7 +161,6 @@
           document.getElementById('complete-button-container').classList.remove('d-none');
         }
     
-        // Handle the complete button
         document.getElementById('mark-completed-btn')?.addEventListener('click', async () => {
           const confirmed = confirm('Are you sure you want to mark this thesis as completed?');
           if (!confirmed) return;
@@ -203,24 +193,77 @@
   
   
   <script>
-    // Check if the user is logged in and has the 'secretariat' role
     window.addEventListener('DOMContentLoaded', () => {
-      fetch('/api/check-session') // Send a request to check the session
+      fetch('/api/check-session')
         .then(res => res.json())
         .then(data => {
           if (!data.loggedIn || data.role !== 'secretariat') {
-            // If not logged in or incorrect role, redirect to login
             window.location.href = '/login.html';
           }
         })
         .catch(err => {
           console.error('Error checking session:', err);
-          window.location.href = '/login.html'; // Redirect to login if there's an error
+          window.location.href = '/login.html';
         });
     });
   </script>
 
-  <script src="main.js"></script>
-
+<script>
+  window.addEventListener('DOMContentLoaded', () => {
+    const thesisId = new URLSearchParams(window.location.search).get('id');
+    if (thesisId) {
+      document.getElementById('thesis_id').value = thesisId; // Add this line to populate the hidden field
+      fetch(`/api/thesis/${thesisId}`)
+        .then(res => {
+          if (!res.ok) {
+            throw new Error(`Failed to fetch thesis with ID ${thesisId}`);
+          }
+          return res.json();
+        })
+        .then(entry => {
+          document.getElementById('thesis-title').textContent = entry.title || 'N/A';
+          document.getElementById('thesis-status').textContent = entry.status || 'N/A';
+          document.getElementById('thesis-assigned-date').textContent = entry.assigned_date
+            ? entry.assigned_date.slice(0, -14)
+            : 'N/A';
+          document.getElementById('thesis-description').textContent = entry.description || 'N/A';
+          document.getElementById('thesis-committee').textContent = entry.committee_names || 'Pending';
+  
+          if (entry.status === 'active') {
+            document.getElementById('conditional-forms').classList.remove('d-none');
+          }
+        })
+        .catch(err => {
+          console.error('Failed to load thesis:', err);
+          alert('Could not load thesis. Please try again later.');
+        });
+    } else {
+      console.error('No thesis ID provided in the URL.');
+      alert('Invalid thesis ID. Please go back and select a valid thesis.');
+    }
+  
+    document.getElementById('protocol-form')?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+  
+      const thesisId = document.getElementById('thesis_id').value;
+      const protocolNumber = document.getElementById('protocol_number').value;
+      const assemblyDate = document.getElementById('assembly_date').value;
+  
+      try {
+        const res = await fetch('/api/register-protocol', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ thesisId, protocolNumber, assemblyDate })
+        });
+  
+        const result = await res.json();
+        alert(result.success ? 'Protocol registered successfully!' : 'Failed to register protocol.');
+      } catch (err) {
+        console.error('Error registering protocol:', err);
+        alert('An error occurred while registering the protocol.');
+      }
+    });
+  });
+  </script>
 </body>
 </html>

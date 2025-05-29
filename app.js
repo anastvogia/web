@@ -8,53 +8,32 @@ const app = express();
 const dbConfig = require('./dbconfig'); 
 const PORT = 3000;
 
-// Middleware to parse JSON request bodies
 app.use(express.json());
 
-// (async () => {
-//   const connection = await mysql.createConnection(dbConfig);
-//   const [users] = await connection.query('SELECT id, password FROM users');
 
-//   for (const user of users) {
-//     const hashedPassword = await bcrypt.hash(user.password, 10);
-//     await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
-//     console.log(`Updated password for user ID ${user.id}`);
-//   }
-
-//   await connection.end();
-// })();
-
-
-// Session configuration
 const sessionConfig = {
-  secret: 'your-secret-key', // Use a strong secret key
+  secret: 'your-secret-key',
   resave: false,
   saveUninitialized: true,
-  cookie: { secure: false, maxAge: 1000 * 60 * 60 * 24 } // 1 day
+  cookie: { secure: false, maxAge: 1000 * 60 * 60 * 24 }
 };
 
-// Session middleware
 app.use(session(sessionConfig));
 
-// Serve static files (HTML, CSS, JS) from "public" folder
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Serve static files from the "thesis" directory
 app.use('/thesis', express.static(path.join(__dirname, 'thesis')));
 
-// Serve static files from the "upload" directory
 app.use('/upload', express.static(path.join(__dirname, 'upload')));
 
 
-// Serve login page as default landing page
 app.get('/', (req, res) => {
   res.redirect('/login.html');
 });
 
-// Serve login page if not logged in
 app.get('/login.html', (req, res) => {
   if (req.session.user) {
-    return res.redirect(`/login.html`); // Redirect logged-in users to the appropriate page
+    return res.redirect(`/login.html`);
   }
   res.sendFile(path.join(__dirname, 'public', 'login.html'));
 });
@@ -94,7 +73,6 @@ app.post('/api/upload-draft', uploadDraft.single('draft'), async (req, res) => {
   }
 });
 
-// Login route
 app.post('/api/login', async (req, res) => {
   const { username, password } = req.body;
 
@@ -127,42 +105,37 @@ app.post('/api/login', async (req, res) => {
 });
 
 
-// Logout route
 app.get('/logout', (req, res) => {
   req.session.destroy((err) => {
     if (err) {
       return res.status(500).send('Could not log out.');
     }
-    res.redirect('/login.html'); // Redirect to login after logout
+    res.redirect('/login.html');
   });
 });
 
-// Middleware to check if user is authenticated and has the correct role
 function isAuthenticated(requiredRole) {
   return (req, res, next) => {
     if (!req.session.user) {
-      return res.redirect('/login.html'); // Redirect to login if not logged in
+      return res.redirect('/login.html');
     }
 
     if (requiredRole && req.session.user.role !== requiredRole) {
-      return res.redirect('/login.html'); // Redirect if user doesn't have the required role
+      return res.redirect('/login.html');
     }
 
-    next(); // Allow access if authenticated and authorized
+    next();
   };
 }
 
-// Serve student-home.html only if the user is logged in and has 'student' role
 app.get('/student-home.html', isAuthenticated('student'), (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'student-home.html'));
 });
 
-// Serve secretariat-home.html only if the user is logged in and has 'secretariat' role
 app.get('/secretariat-home.html', isAuthenticated('secretariat'), (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'secretariat-home.html'));
 });
 
-// Serve professor-home.html only if the user is logged in and has 'professor' role
 app.get('/professor-home.html', isAuthenticated('professor'), (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'professor-home.html'));
 });
@@ -180,7 +153,6 @@ app.get('/login.html', (req, res) => {
 
 const importUpload = multer({ dest: 'uploads/' });
 
-// Function to generate a random password
 function generateRandomPassword(length = 12) {
   const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
   let password = "";
@@ -215,17 +187,13 @@ app.post('/api/import-users', importUpload.single('file'), async (req, res) => {
         full_address = null, mobile_phone = null, landline = null
       } = user;
 
-      // Skip if role is not valid or email is missing
       if (!['student', 'professor'].includes(role) || !email) continue;
 
-      // Generate a random password
       const plainPassword = generateRandomPassword();
       console.log(`Generated password for ${email}: ${plainPassword}`);
 
-      // Hash the generated password
       const hashedPassword = await bcrypt.hash(plainPassword, 10);
 
-      // Use email as the username
       await connection.query(`
         INSERT INTO users (username, password, role, full_address, email, mobile_phone, landline)
         VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -235,7 +203,7 @@ app.post('/api/import-users', importUpload.single('file'), async (req, res) => {
     }
 
     await connection.end();
-    fs.unlinkSync(filePath); // Cleanup uploaded file
+    fs.unlinkSync(filePath);
 
     res.json({
       success: true,
@@ -247,8 +215,6 @@ app.post('/api/import-users', importUpload.single('file'), async (req, res) => {
   }
 });
 
-// API to get all theses, sorted by assigned_date (newest first)
-// Fetch ONLY active or under_review theses
 app.get('/api/thesis', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
@@ -267,14 +233,12 @@ app.get('/api/thesis', async (req, res) => {
 });
 
 
-// Fetch full data for one thesis by ID
 app.get('/api/thesis/:id', async (req, res) => {
   const thesisId = req.params.id;
 
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Get thesis basic info
     const [thesisRows] = await connection.query(`
       SELECT id, title, description, status, assigned_date, additional_links, exam_date, exam_location, exam_link, nemertis_link, draft_file_path
       FROM thesis
@@ -288,7 +252,6 @@ app.get('/api/thesis/:id', async (req, res) => {
 
     const thesis = thesisRows[0];
 
-    // Now get committee (accepted professors)
     const [committeeRows] = await connection.query(`
       SELECT u.username
       FROM committee_invites ci
@@ -313,10 +276,8 @@ app.get('/api/thesis/:id', async (req, res) => {
 
     await connection.end();
 
-    // Prepare committee names
     const committeeList = committeeRows.map(row => row.username).join(', ');
 
-    // Add committee list to thesis
     thesis.committee_names = committeeList || 'Pending';
 
     thesis.committee_grades = grades;
@@ -340,7 +301,6 @@ app.get('/api/exam-report', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Get thesis
     const [thesisRows] = await connection.query(`
       SELECT id, title, exam_date, exam_location, nemertis_link
       FROM thesis
@@ -354,7 +314,6 @@ app.get('/api/exam-report', async (req, res) => {
 
     const thesis = thesisRows[0];
 
-    // Get real committee members (accepted only)
     const [committeeRows] = await connection.query(`
       SELECT u.username
       FROM committee_invites ci
@@ -431,7 +390,6 @@ app.get('/api/completed-thesis', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Get thesis
     const [thesisRows] = await connection.query(`
       SELECT id, title, description, assigned_date, days_since_assignment, protocol_number
       FROM thesis
@@ -553,8 +511,6 @@ app.get('/api/completed-thesis', async (req, res) => {
   }
 });
 
-// API to check if user is logged in and return their role
-// Check current session (used by navbar)
 app.get('/api/check-session', (req, res) => {
   if (req.session && req.session.user) {
     res.json({
@@ -577,7 +533,6 @@ app.get('/api/student-thesis', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Get thesis for student
     const [thesisRows] = await connection.query(
       'SELECT * FROM thesis WHERE student_id = ?',
       [studentId]
@@ -590,7 +545,6 @@ app.get('/api/student-thesis', async (req, res) => {
 
     const thesis = thesisRows[0];
 
-    // Get accepted professors for this thesis
     const [committee] = await connection.query(
       `SELECT u.username 
        FROM committee_invites ci
@@ -599,7 +553,6 @@ app.get('/api/student-thesis', async (req, res) => {
       [thesis.id]
     );
 
-    // Create a string of professor usernames like: "prof1, prof2, prof3"
     thesis.committee_names = committee.map(c => c.username).join(', ') || null;
 
     await connection.end();
@@ -610,7 +563,6 @@ app.get('/api/student-thesis', async (req, res) => {
   }
 });
 
-// API to get current user's profile info
 app.get('/api/get-profile', async (req, res) => {
   if (!req.session.user) {
     return res.status(401).json({ error: 'Not logged in' });
@@ -635,7 +587,6 @@ app.get('/api/get-profile', async (req, res) => {
   }
 });
 
-// API to update current user's profile
 app.post('/api/update-profile', async (req, res) => {
   if (!req.session.user) {
     return res.status(401).json({ error: 'Not logged in' });
@@ -668,7 +619,6 @@ app.post('/api/invite-professor', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Get the student's thesis ID
     const [thesisRows] = await connection.query('SELECT id FROM thesis WHERE student_id = ?', [studentId]);
     if (thesisRows.length === 0) {
       await connection.end();
@@ -676,7 +626,6 @@ app.post('/api/invite-professor', async (req, res) => {
     }
     const thesisId = thesisRows[0].id;
 
-    // Check if already invited
     const [existing] = await connection.query(
       'SELECT * FROM committee_invites WHERE thesis_id = ? AND professor_id = ?',
       [thesisId, professorId]
@@ -686,7 +635,6 @@ app.post('/api/invite-professor', async (req, res) => {
       return res.status(400).json({ error: 'Professor already invited' });
     }
 
-    // Insert invite
     await connection.query(
       'INSERT INTO committee_invites (thesis_id, professor_id) VALUES (?, ?)',
       [thesisId, professorId]
@@ -706,7 +654,7 @@ app.post('/api/respond-invite', async (req, res) => {
   }
 
   const professorId = req.session.user.id;
-  const { inviteId, response } = req.body; // response = 'accepted' or 'declined'
+  const { inviteId, response } = req.body;
 
   if (!['accepted', 'declined'].includes(response)) {
     return res.status(400).json({ error: 'Invalid response' });
@@ -715,7 +663,6 @@ app.post('/api/respond-invite', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Check if invite exists and belongs to professor
     const [inviteRows] = await connection.query(
       'SELECT * FROM committee_invites WHERE id = ? AND professor_id = ?',
       [inviteId, professorId]
@@ -728,26 +675,22 @@ app.post('/api/respond-invite', async (req, res) => {
 
     const thesisId = inviteRows[0].thesis_id;
 
-    // Update invite status and responded_at timestamp
     await connection.query(
       'UPDATE committee_invites SET status = ?, responded_at = NOW() WHERE id = ?',
       [response, inviteId]
     );
 
-    // Check how many professors accepted
     const [accepted] = await connection.query(
       'SELECT COUNT(*) AS count FROM committee_invites WHERE thesis_id = ? AND status = "accepted"',
       [thesisId]
     );
 
     if (accepted[0].count >= 2) {
-      // Enough professors accepted → move thesis to "active"
       await connection.query(
         'UPDATE thesis SET status = "active" WHERE id = ?',
         [thesisId]
       );
 
-      // Decline all other pending invitations
       await connection.query(
         'UPDATE committee_invites SET status = "declined", responded_at = NOW() WHERE thesis_id = ? AND status = "pending"',
         [thesisId]
@@ -776,7 +719,7 @@ app.get('/api/professors', async (req, res) => {
           FROM thesis
           WHERE student_id = ?
         )`
-    , [req.session.user.id]); // Use req.session.user.id for the logged-in student's ID
+    , [req.session.user.id]);
     await connection.end();
     res.json(rows);
   } catch (err) {
@@ -842,8 +785,6 @@ app.get('/api/invites-for-me', async (req, res) => {
     res.status(500).json({ error: 'Failed to load invitations' });
   }
 });
-// API to set exam details (date, location, link) for a thesis
-// Only accessible by students
 app.post('/api/set-exam-details', async (req, res) => {
   if (!req.session.user || req.session.user.role !== 'student') {
     return res.status(403).json({ error: 'Unauthorized' });
@@ -893,19 +834,16 @@ app.post('/api/set-nemertis-link', async (req, res) => {
 async function updateThesisStatus(thesisId, newStatus) {
   const connection = await mysql.createConnection(dbConfig);
 
-  // Get old status
   const [[row]] = await connection.query(
     'SELECT status FROM thesis WHERE id = ?', [thesisId]
   );
   const oldStatus = row.status;
 
-  // Update thesis status
   await connection.query(
     'UPDATE thesis SET status = ? WHERE id = ?',
     [newStatus, thesisId]
   );
 
-  // Insert status change history
   await connection.query(
     'INSERT INTO thesis_status_history (thesis_id, old_status, new_status) VALUES (?, ?, ?)',
     [thesisId, oldStatus, newStatus]
@@ -1057,7 +995,6 @@ app.get('/api/available-theses', async (req, res) => {
   const connection = await mysql.createConnection(dbConfig);
 
   const professorId = req.session.user.id;
-  // console.log('Professor ID:', professorId);
   const [rows] = await connection.query(`
     SELECT id, title
     FROM thesis
@@ -1134,7 +1071,6 @@ app.get('/api/professor-under-assignment', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-// Only show theses the professor assigned
 app.get('/api/professor-assigned-theses', async (req, res) => {
   if (!req.session.user || req.session.user.role !== 'professor') {
     return res.status(403).json({ success: false, message: 'Unauthorized' });
@@ -1159,7 +1095,7 @@ app.get('/api/professor-assigned-theses', async (req, res) => {
   }
 });
 app.post('/api/professor-cancel-assignment', async (req, res) => {
-  const { thesisId, reason } = req.body; // reason and cancelNumber may be provided conditionally
+  const { thesisId, reason } = req.body;
 
   if (!req.session.user || req.session.user.role !== 'professor') {
     return res.status(403).json({ success: false, message: 'Unauthorized' });
@@ -1167,7 +1103,6 @@ app.post('/api/professor-cancel-assignment', async (req, res) => {
 
   try {
     const connection = await mysql.createConnection(dbConfig);
-    // Check if the thesis belongs to this professor and is under_assignment
     const [rows] = await connection.query(`
     SELECT * FROM thesis
     WHERE id = ? AND professor_id = ? AND (status = 'under_assignment' OR status = 'active')
@@ -1178,7 +1113,6 @@ app.post('/api/professor-cancel-assignment', async (req, res) => {
       return res.json({ success: false, message: 'Cannot cancel: not found or unauthorized.' });
     }
 
-    // Update thesis: only set the cancellation_reason if provided; otherwise, it will remain NULL
     await connection.query(`
       UPDATE thesis
       SET student_id = NULL,
@@ -1200,8 +1134,8 @@ app.post('/api/professor-cancel-assignment', async (req, res) => {
 
 
 const upload = multer({
-  dest: 'uploads/', // Directory to store uploaded files
-  limits: { fileSize: 5 * 1024 * 1024 }, // Limit file size to 5MB
+  dest: 'uploads/',
+  limits: { fileSize: 5 * 1024 * 1024 },
 });
 
 
@@ -1244,7 +1178,6 @@ app.get('/api/professor-theses', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Fetch theses created by the logged-in professor
     const [rows] = await connection.query(`
       SELECT id, title, description, status, assigned_date
       FROM thesis
@@ -1287,7 +1220,6 @@ app.put('/api/thesis/:id', async (req, res) => {
 });
 
 
-// Professor responds to an invitation (accept or decline)
 app.post('/api/respond-invite', async (req, res) => {
   const { inviteId, response } = req.body;
 
@@ -1302,7 +1234,6 @@ app.post('/api/respond-invite', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Update status and responded_at
     const [result] = await connection.query(`
       UPDATE committee_invites
       SET status = ?, responded_at = NOW()
@@ -1359,7 +1290,7 @@ app.get('/api/professor-theses-filtered', async (req, res) => {
     return res.status(403).json({ success: false, message: 'Unauthorized' });
   }
 
-  const { status, role } = req.query; // Get filters from query string
+  const { status, role } = req.query;
   const professorId = req.session.user.id;
 
   try {
@@ -1378,13 +1309,11 @@ app.get('/api/professor-theses-filtered', async (req, res) => {
     `;
     const params = [professorId, professorId, professorId, professorId];
 
-    // Add status filter if provided
     if (status) {
       query += ' AND t.status = ?';
       params.push(status);
     }
 
-    // Add role filter if provided
     if (role) {
       query += ' HAVING role = ?';
       params.push(role);
@@ -1418,7 +1347,6 @@ app.post('/api/thesis/:id/add-comment', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Check if the professor is associated with the thesis
     const [rows] = await connection.query(`
       SELECT * FROM thesis
       WHERE id = ? AND (professor_id = ? OR id IN (
@@ -1431,7 +1359,6 @@ app.post('/api/thesis/:id/add-comment', async (req, res) => {
       return res.status(403).json({ error: 'You are not authorized to comment on this thesis.' });
     }
 
-    // Insert the comment
     await connection.query(`
       INSERT INTO professor_comments (thesis_id, professor_id, comment)
       VALUES (?, ?, ?)
@@ -1456,7 +1383,6 @@ app.get('/api/thesis/:id/comments', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Check if the professor is associated with the thesis
     const [rows] = await connection.query(`
       SELECT * FROM thesis
       WHERE id = ? AND (professor_id = ? OR id IN (
@@ -1469,7 +1395,6 @@ app.get('/api/thesis/:id/comments', async (req, res) => {
       return res.status(403).json({ error: 'You are not authorized to view comments for this thesis.' });
     }
 
-    // Fetch comments
     const [comments] = await connection.query(`
       SELECT comment, created_at
       FROM professor_comments
@@ -1512,12 +1437,10 @@ app.get('/api/thesis/:id/announcement', async (req, res) => {
 
     const thesis = rows[0];
 
-    // If a custom announcement exists, return it
     if (thesis.announcement) {
       return res.json({ success: true, announcement: thesis.announcement });
     }
 
-    // Otherwise, generate one automatically
     if (!thesis.exam_date || (!thesis.exam_location && !thesis.exam_link)) {
       return res.status(400).json({ success: false, message: 'Presentation details are missing' });
     }
@@ -1589,7 +1512,6 @@ app.get('/api/professor-announcements', async (req, res) => {
 
 
 
-// Save custom announcement
 app.post('/api/save-announcement/:id', async (req, res) => {
   const thesisId = req.params.id;
   const { announcement } = req.body;
@@ -1644,7 +1566,6 @@ app.get('/api/thesis/:id/draft', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Fetch the draft file path for the thesis
     const [rows] = await connection.query(`
       SELECT draft_file_path
       FROM thesis
@@ -1726,7 +1647,6 @@ app.get('/api/professor-thesis-stats', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Count theses where professor is the supervisor
     const [supervisedRows] = await connection.query(`
       SELECT COUNT(*) AS supervised_count
       FROM thesis
@@ -1735,7 +1655,6 @@ app.get('/api/professor-thesis-stats', async (req, res) => {
 
     const supervisedCount = supervisedRows[0].supervised_count;
 
-    // Count theses where professor is a committee member (excluding supervised ones)
     const [committeeOnlyRows] = await connection.query(`
       SELECT COUNT(*) AS committee_only_count
       FROM committee_invites ci
@@ -1767,14 +1686,12 @@ app.get('/api/professor-avg-completion', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    //Average completion time as supervisor
     const [[supervised]] = await connection.query(`
       SELECT AVG(DATEDIFF(t.exam_date, t.assigned_date)) AS avg_days_supervised
       FROM thesis t
       WHERE t.professor_id = ? AND t.status = 'completed'
     `, [professorId]);
 
-    //Average as committee member (excluding duplicates where also supervisor)
     const [[committee]] = await connection.query(`
       SELECT AVG(DATEDIFF(t.exam_date, t.assigned_date)) AS avg_days_committee
       FROM thesis t
@@ -1807,7 +1724,6 @@ app.post('/api/thesis/:id/grade', async (req, res) => {
   const { qualityGrade, durationGrade, textQualityGrade, presentationGrade, comments } = req.body;
   const professorId = req.session.user.id;
 
-  // Validate grades
   if (
     !Number.isInteger(qualityGrade) || qualityGrade < 0 || qualityGrade > 10 ||
     !Number.isInteger(durationGrade) || durationGrade < 0 || durationGrade > 10 ||
@@ -1820,7 +1736,6 @@ app.post('/api/thesis/:id/grade', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Check if the professor is part of the committee for this thesis
     const [rows] = await connection.query(`
       SELECT 1
       FROM thesis t
@@ -1835,7 +1750,6 @@ app.post('/api/thesis/:id/grade', async (req, res) => {
       return res.status(403).json({ error: 'You are not authorized to grade this thesis.' });
     }
 
-    // Insert or update the grades
     await connection.query(`
       INSERT INTO committee_grades (thesis_id, professor_id, quality_grade, duration_grade, text_quality_grade, presentation_grade, comments)
       VALUES (?, ?, ?, ?, ?, ?, ?)
@@ -1865,7 +1779,6 @@ app.get('/api/thesis/:id/committee-grades', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Fetch grades from the committee_grades table
     const [rows] = await connection.query(`
       SELECT u.username AS professor, cg.quality_grade, cg.duration_grade, cg.text_quality_grade, cg.presentation_grade, cg.final_grade, cg.comments
       FROM committee_grades cg
@@ -1892,7 +1805,6 @@ app.post('/api/thesis/:id/open-grading', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Ensure the user is the supervisor of the thesis
     const [[row]] = await connection.query(
       'SELECT id FROM thesis WHERE id = ? AND professor_id = ?',
       [thesisId, professorId]
@@ -1926,7 +1838,6 @@ app.get('/api/professor-avg-grades', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // As Supervisor
     const [[supervised]] = await connection.query(`
       SELECT AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4) AS avg_supervised
       FROM committee_grades
@@ -1935,7 +1846,6 @@ app.get('/api/professor-avg-grades', async (req, res) => {
       ) AND professor_id = ?
     `, [professorId, professorId]);
 
-    // As Committee Member (excluding if supervisor)
     const [[committee]] = await connection.query(`
       SELECT AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4) AS avg_committee
       FROM committee_grades
@@ -1964,7 +1874,6 @@ app.get('/api/thesis/:id/details', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Fetch thesis core details and student info
     const [[thesis]] = await connection.query(`
       SELECT 
         t.id,
@@ -1983,7 +1892,6 @@ app.get('/api/thesis/:id/details', async (req, res) => {
       return res.status(404).json({ success: false, message: 'Thesis not found' });
     }
 
-    // Fetch status history (timeline)
     const [timeline] = await connection.query(`
       SELECT old_status, new_status, changed_at
       FROM thesis_status_history
@@ -1991,7 +1899,6 @@ app.get('/api/thesis/:id/details', async (req, res) => {
       ORDER BY changed_at ASC
     `, [thesisId]);
 
-    // Fetch average final grade
     const [[gradeData]] = await connection.query(`
       SELECT 
         ROUND(AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4), 2) AS final_grade
@@ -1999,7 +1906,6 @@ app.get('/api/thesis/:id/details', async (req, res) => {
       WHERE thesis_id = ?
     `, [thesisId]);
 
-    // Attach final_grade to the thesis object
     thesis.final_grade = gradeData.final_grade || null;
 
     await connection.end();
@@ -2029,7 +1935,6 @@ app.get('/api/professor-theses-details', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Fetch all theses for the professor
     const [theses] = await connection.query(`
       SELECT 
         t.id,
@@ -2043,9 +1948,7 @@ app.get('/api/professor-theses-details', async (req, res) => {
       WHERE t.professor_id = ?
     `, [professorId]);
 
-    // Fetch additional details for each thesis
     for (const thesis of theses) {
-      // Fetch status history (timeline)
       const [timeline] = await connection.query(`
         SELECT old_status, new_status, changed_at
         FROM thesis_status_history
@@ -2053,7 +1956,6 @@ app.get('/api/professor-theses-details', async (req, res) => {
         ORDER BY changed_at ASC
       `, [thesis.id]);
 
-      // Fetch average final grade
       const [[gradeData]] = await connection.query(`
         SELECT 
           ROUND(AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4), 2) AS final_grade
@@ -2061,7 +1963,6 @@ app.get('/api/professor-theses-details', async (req, res) => {
         WHERE thesis_id = ?
       `, [thesis.id]);
 
-      // Attach additional data to the thesis object
       thesis.timeline = timeline;
       thesis.final_grade = gradeData ? gradeData.final_grade : null;
     }
@@ -2080,17 +1981,12 @@ app.get('/api/export-theses/:format', async (req, res) => {
     return res.status(403).json({ success: false, message: 'Unauthorized' });
   }
 
-  // const format = req.params.format; // Get format from the endpoint parameter
-  // if (!['csv', 'json'].includes(format)) {
-  //   return res.status(400).json({ success: false, message: 'Invalid format. Use "csv" or "json".' });
-  // }
-  const format = req.params.format === 'csv' ? 'csv' : 'json'; // Default to JSON if not CSV
+  const format = req.params.format === 'csv' ? 'csv' : 'json';
   const professorId = req.session.user.id;
 
   try {
     const connection = await mysql.createConnection(dbConfig);
 
-    // Fetch all theses for the professor
     const [theses] = await connection.query(`
       SELECT 
         t.id,
@@ -2104,7 +2000,6 @@ app.get('/api/export-theses/:format', async (req, res) => {
       WHERE t.professor_id = ?
     `, [professorId]);
 
-    // Fetch additional details for each thesis
     for (const thesis of theses) {
       const [timeline] = await connection.query(`
         SELECT old_status, new_status, changed_at
@@ -2127,7 +2022,6 @@ app.get('/api/export-theses/:format', async (req, res) => {
     await connection.end();
 
     if (format === 'csv') {
-      // Convert data to CSV
       const csvHeaders = ['ID', 'Title', 'Description', 'Status', 'Committee', 'Student Name', 'Final Grade'];
       const csvRows = theses.map(thesis => [
         thesis.id,
@@ -2148,7 +2042,6 @@ app.get('/api/export-theses/:format', async (req, res) => {
       res.setHeader('Content-Disposition', 'attachment; filename="theses.csv"');
       res.send(csvContent);
     } else {
-      // Return data as JSON
       res.setHeader('Content-Type', 'application/json');
       res.setHeader('Content-Disposition', 'attachment; filename="theses.json"');
       res.send(theses.map(thesis => JSON.stringify(thesis, null, 2)).join('\n\n'));
@@ -2189,7 +2082,6 @@ app.get('/api/announcements', async (req, res) => {
     }
 });
 
-// Endpoint to export announcements
 app.get('/api/announcements/export', async (req, res) => {
   const { format, startDate, endDate } = req.query;
 
@@ -2265,9 +2157,8 @@ app.post('/api/set-links', async (req, res) => {
   }
 });
 
-// GET /api/student-thesis-id/:studentId
 app.get('/api/student-thesis-id', async (req, res) => {
-  const studentId = req.session.user.id; // Use session ID instead of URL parameter
+  const studentId = req.session.user.id;
 
   try {
     const connection = await mysql.createConnection(dbConfig);
@@ -2288,8 +2179,40 @@ app.get('/api/student-thesis-id', async (req, res) => {
   }
 });
 
+app.post('/api/cancel-thesis', async (req, res) => {
+  if (!req.session.user || req.session.user.role !== 'secretariat') {
+    return res.status(403).json({ error: 'Unauthorized' });
+  }
 
-// Start the server
+  const { thesisId, reason, assemblyNumber, assemblyYear } = req.body;
+
+  try {
+    const connection = await mysql.createConnection(dbConfig);
+
+    const [result] = await connection.query(`
+      UPDATE thesis
+      SET status = 'cancelled',
+          cancellation_reason = ?,
+          assembly_number = ?,
+          assembly_year = ?
+      WHERE id = ?
+    `, [reason, assemblyNumber, assemblyYear, thesisId]);
+
+    await connection.end();
+
+    if (result.affectedRows === 0) {
+      console.warn('[Cancel Thesis] No thesis found with ID:', thesisId);
+      return res.json({ success: false, message: 'No matching thesis found' });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('[Cancel Thesis Error]', err);
+    res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+
 app.listen(PORT, () => {
   console.log(`Server running at http://localhost:${PORT}`);
 });
