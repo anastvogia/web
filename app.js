@@ -10,13 +10,27 @@ const PORT = 3000;
 
 app.use(express.json());
 
-
 const sessionConfig = {
   secret: 'your-secret-key',
   resave: false,
   saveUninitialized: true,
   cookie: { secure: false, maxAge: 1000 * 60 * 60 * 24 }
 };
+
+//(async () => {
+//  const connection = await mysql.createConnection(dbConfig);
+//  const [users] = await connection.query('SELECT id, password FROM users');
+//
+//  for (const user of users) {
+//    const hashedPassword = await bcrypt.hash(user.password, 10);
+//    await connection.query('UPDATE users SET password = ? WHERE id = ?', [hashedPassword, user.id]);
+//    console.log(`Updated password for user ID ${user.id}`);
+//  }
+//
+//  await connection.end();
+//})();
+
+
 
 app.use(session(sessionConfig));
 
@@ -221,7 +235,7 @@ app.get('/api/thesis', async (req, res) => {
     const [rows] = await connection.query(`
       SELECT id, title, status, assigned_date
       FROM thesis
-      WHERE status IN ('active', 'under_review')
+      WHERE status IN ("active", "under_review")
       ORDER BY assigned_date DESC
     `);
     await connection.end();
@@ -252,12 +266,27 @@ app.get('/api/thesis/:id', async (req, res) => {
 
     const thesis = thesisRows[0];
 
-    const [committeeRows] = await connection.query(`
+    const [committee] = await connection.query(`
       SELECT u.username
       FROM committee_invites ci
       JOIN users u ON ci.professor_id = u.id
       WHERE ci.thesis_id = ? AND ci.status = 'accepted'
     `, [thesisId]);
+
+    // Get supervising professor username
+    const [[supervisorResult]] = await connection.query(`
+      SELECT u.username
+      FROM thesis t
+      JOIN users u ON t.professor_id = u.id
+      WHERE t.id = ?
+    `, [thesisId]);
+
+    const committeeNames = committee.map(c => c.username);
+    const supervisorName = supervisorResult?.username;
+
+    // Combine and deduplicate
+    const allNamesSet = new Set([...committeeNames, supervisorName]);
+    thesis.committee_names = Array.from(allNamesSet).join(', ') || null;
 
     const [grades] = await connection.query(`
     SELECT 
@@ -276,12 +305,7 @@ app.get('/api/thesis/:id', async (req, res) => {
 
     await connection.end();
 
-    const committeeList = committeeRows.map(row => row.username).join(', ');
-
-    thesis.committee_names = committeeList || 'Pending';
-
     thesis.committee_grades = grades;
-
 
     res.json(thesis);
   } catch (err) {
@@ -314,14 +338,27 @@ app.get('/api/exam-report', async (req, res) => {
 
     const thesis = thesisRows[0];
 
-    const [committeeRows] = await connection.query(`
+    const [committee] = await connection.query(`
       SELECT u.username
       FROM committee_invites ci
       JOIN users u ON ci.professor_id = u.id
       WHERE ci.thesis_id = ? AND ci.status = 'accepted'
     `, [thesis.id]);
 
-    const committeeList = committeeRows.map(member => member.username).join(', ') || 'Pending';
+    // Get supervising professor username
+    const [[supervisorResult]] = await connection.query(`
+      SELECT u.username
+      FROM thesis t
+      JOIN users u ON t.professor_id = u.id
+      WHERE t.id = ?
+    `, [thesis.id]);
+
+    const committeeNames = committee.map(c => c.username);
+    const supervisorName = supervisorResult?.username;
+
+    // Combine and deduplicate
+    const allNamesSet = new Set([...committeeNames, supervisorName]);
+    thesis.committee_names = Array.from(allNamesSet).join(', ') || null;
 
     await connection.end();
 
@@ -348,7 +385,7 @@ app.get('/api/exam-report', async (req, res) => {
             <div class="card-body">
               <h4 class="card-title mb-3">Title: ${thesis.title}</h4>
               <p class="mb-2">
-                <strong>Committee:</strong> ${committeeList}
+                <strong>Committee:</strong> ${thesis.committee_names}
               </p>
               <p class="mb-2">
                 <strong>Exam Date:</strong> ${new Date(thesis.exam_date).toLocaleString()}
@@ -546,14 +583,27 @@ app.get('/api/student-thesis', async (req, res) => {
     const thesis = thesisRows[0];
 
     const [committee] = await connection.query(
-      `SELECT u.username 
+      `SELECT u.username
        FROM committee_invites ci
        JOIN users u ON ci.professor_id = u.id
        WHERE ci.thesis_id = ? AND ci.status = 'accepted'`,
       [thesis.id]
     );
-
-    thesis.committee_names = committee.map(c => c.username).join(', ') || null;
+    
+    const [supervisorResult] = await connection.query(
+      `SELECT u.username
+       FROM thesis t
+       JOIN users u ON t.professor_id = u.id
+       WHERE t.id = ?`,
+      [thesis.id]
+    );
+    
+    const committeeNames = committee.map(c => c.username);
+    const supervisorName = supervisorResult[0]?.username;
+    
+    const allNamesSet = new Set([...committeeNames, supervisorName]);
+    thesis.committee_names = Array.from(allNamesSet).join(', ') || null;
+    
 
     await connection.end();
     res.json(thesis);
@@ -1031,7 +1081,7 @@ app.post('/api/assign-thesis-to-student', async (req, res) => {
 
     const [result] = await connection.query(`
       UPDATE thesis
-      SET student_id = ?, status = 'under_assignment', professor_id = ?
+      SET student_id = ?, status = 'under_assignment', professor_id = ?, assigned_date = NOW()
       WHERE id = ? AND status IS NULL
     `, [studentId, req.session.user.id, thesisId]);
 
@@ -1305,7 +1355,7 @@ app.get('/api/professor-theses-filtered', async (req, res) => {
              END AS role
       FROM thesis t
       LEFT JOIN committee_invites ci ON t.id = ci.thesis_id
-      WHERE (t.professor_id = ? OR ci.professor_id = ?)
+      WHERE (t.professor_id = ? OR (ci.professor_id = ? AND ci.status = 'accepted')) 
     `;
     const params = [professorId, professorId, professorId, professorId];
 
@@ -1906,7 +1956,30 @@ app.get('/api/thesis/:id/details', async (req, res) => {
       WHERE thesis_id = ?
     `, [thesisId]);
 
-    thesis.final_grade = gradeData.final_grade || null;
+    // Get accepted committee members
+    const [committee] = await connection.query(`
+      SELECT u.username
+      FROM committee_invites ci
+      JOIN users u ON ci.professor_id = u.id
+      WHERE ci.thesis_id = ? AND ci.status = 'accepted'
+    `, [thesisId]);
+
+    // Get supervising professor username
+    const [[supervisorResult]] = await connection.query(`
+      SELECT u.username
+      FROM thesis t
+      JOIN users u ON t.professor_id = u.id
+      WHERE t.id = ?
+    `, [thesisId]);
+
+    const committeeNames = committee.map(c => c.username);
+    const supervisorName = supervisorResult?.username;
+
+    // Combine and deduplicate
+    const allNamesSet = new Set([...committeeNames, supervisorName]);
+    thesis.committee_names = Array.from(allNamesSet).join(', ') || null;
+
+    thesis.final_grade = gradeData?.final_grade || null;
 
     await connection.end();
 
@@ -1914,7 +1987,7 @@ app.get('/api/thesis/:id/details', async (req, res) => {
       success: true,
       thesis,
       timeline,
-      final_grade: gradeData.final_grade || null
+      final_grade: thesis.final_grade
     });
 
   } catch (err) {
@@ -1931,10 +2004,12 @@ app.get('/api/professor-theses-details', async (req, res) => {
   }
 
   const professorId = req.session.user.id;
+  const professorUsername = req.session.user.username;   // already in the session
 
   try {
     const connection = await mysql.createConnection(dbConfig);
 
+    // theses supervised by the logged‑in professor
     const [theses] = await connection.query(`
       SELECT 
         t.id,
@@ -1949,6 +2024,7 @@ app.get('/api/professor-theses-details', async (req, res) => {
     `, [professorId]);
 
     for (const thesis of theses) {
+      // timeline
       const [timeline] = await connection.query(`
         SELECT old_status, new_status, changed_at
         FROM thesis_status_history
@@ -1956,6 +2032,7 @@ app.get('/api/professor-theses-details', async (req, res) => {
         ORDER BY changed_at ASC
       `, [thesis.id]);
 
+      // average grade
       const [[gradeData]] = await connection.query(`
         SELECT 
           ROUND(AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4), 2) AS final_grade
@@ -1963,12 +2040,26 @@ app.get('/api/professor-theses-details', async (req, res) => {
         WHERE thesis_id = ?
       `, [thesis.id]);
 
-      thesis.timeline = timeline;
-      thesis.final_grade = gradeData ? gradeData.final_grade : null;
+      // accepted committee members
+      const [committee] = await connection.query(`
+        SELECT u.username
+        FROM committee_invites ci
+        JOIN users u ON ci.professor_id = u.id
+        WHERE ci.thesis_id = ? AND ci.status = 'accepted'
+      `, [thesis.id]);
+
+      // merge committee + supervisor, remove duplicates
+      const allNames = new Set([
+        ...committee.map(c => c.username),
+        professorUsername
+      ]);
+      thesis.committee_names = Array.from(allNames).join(', ') || null;
+
+      thesis.timeline     = timeline;
+      thesis.final_grade  = gradeData ? gradeData.final_grade : null;
     }
 
     await connection.end();
-
     res.json({ success: true, theses });
   } catch (error) {
     console.error('Error fetching professor theses details:', error);

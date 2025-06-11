@@ -72,7 +72,7 @@
         infoDiv.innerHTML = `
           <h3>${thesis.title}</h3>
           <p><strong>Student:</strong> ${thesis.student_name || 'N/A'}</p>
-          <p><strong>Committee:</strong> ${thesis.committee || 'N/A'}</p>
+          <p><strong>Committee:</strong> ${thesis.committee_names || 'N/A'}</p>
           <p><strong>Status:</strong> ${thesis.status}</p>
         `;
 
@@ -92,14 +92,12 @@
           if (!isNaN(grade)) {
             finalGradeSpan.textContent = grade.toFixed(1);
             
-            // Remove any existing badge color
             finalGradeSpan.classList.remove('bg-danger', 'bg-warning', 'bg-success');
 
-            // Apply color based on value
             if (grade < 5) {
               finalGradeSpan.classList.add('bg-danger');
             } else if (grade < 7) {
-              finalGradeSpan.classList.add('bg-warning', 'text-dark'); // orange
+              finalGradeSpan.classList.add('bg-warning', 'text-dark');
             } else {
               finalGradeSpan.classList.add('bg-success');
             }
@@ -137,7 +135,6 @@
     const thesisData = await titleRes.json();
     const thesisTitle = thesisData.title || 'Untitled';
 
-    // Store data globally for use in download
     window.loadedGrades = grades;
     window.loadedTitle = thesisTitle;
     window.loadedThesisId = thesisId;
@@ -191,7 +188,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     const res = await fetch(`/api/thesis/${thesisId}`);
     const thesis = await res.json();
 
-    // Existing population code...
     document.getElementById('exam-link').href = thesis.exam_link || '#';
     document.getElementById('exam-link').textContent = thesis.exam_link || 'N/A';
 
