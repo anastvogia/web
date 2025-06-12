@@ -17,24 +17,7 @@
     </div>
   </nav>
   
-  <script>
-    window.addEventListener('DOMContentLoaded', () => {
-      fetch('/api/check-session')
-        .then(res => res.json())
-        .then(data => {
-          if (data.loggedIn) {
-            document.getElementById('navbar-username').textContent = data.username;
-          } else {
-            window.location.href = '/login.html';
-          }
-        });
-  
-      document.getElementById('logout-btn').addEventListener('click', () => {
-        fetch('/api/logout', { method: 'POST' })
-          .then(() => window.location.href = '/login.html');
-      });
-    });
-  </script>
+
   <div class="container my-5">
 
     <div class="card mb-4">
@@ -83,7 +66,7 @@
       </div>
     </div>
 
-    <div class="card mb-4">
+    <div class="card mb-4" id="manage-thesis" style="display:none;">
       <div class="card-header bg-warning text-dark">
         Manage Thesis Work
       </div>
@@ -143,45 +126,6 @@
           </div>
 
           <a id="exam-report-btn" href="/api/exam-report" target="_blank" class="btn btn-outline-secondary btn-sm mb-2 d-none">View Exam Report</a>
-          
-          
-          <script>
-            document.addEventListener('DOMContentLoaded', async () => {
-              try {
-  
-                const res = await fetch('/api/student-thesis-id');
-                const data = await res.json();
-                console.log('Thesis ID data:', data);
-          
-                if (data.success && data.thesisId) {
-                  const thesisId = data.thesisId;
-          
-  
-                  const link = document.getElementById('student-thesis-link');
-                  if (link) {
-                    link.href = `/thesis-details.html?id=${thesisId}`;
-                  }
-          
-                  const thesisRes = await fetch(`/api/thesis/${thesisId}`);
-                  const thesis = await thesisRes.json();
-                  console.log('Thesis data:', thesis);
-          
-                  if (
-                    Array.isArray(thesis.committee_grades) &&
-                    thesis.committee_grades.length > 0 &&
-                    (thesis.status === 'under_review' || thesis.status === 'completed')
-                  ) {
-                    document.getElementById('exam-report-btn')?.classList.remove('d-none');
-                  }
-                } else {
-                  console.warn('Thesis not found for this student.');
-                }
-              } catch (err) {
-                console.error('Error fetching thesis or grades:', err);
-              }
-            });
-          </script>
-          
             
         <div id="completed" class="mt-4 card-body">
           <h5>Completed</h5>
@@ -192,6 +136,60 @@
     </div>
 
   </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+
+        const res = await fetch('/api/student-thesis-id');
+        const data = await res.json();
+        console.log('Thesis ID data:', data);
+  
+        if (data.success && data.thesisId) {
+          const thesisId = data.thesisId;
+  
+
+          const link = document.getElementById('student-thesis-link');
+          if (link) {
+            link.href = `/thesis-details.html?id=${thesisId}`;
+          }
+  
+          const thesisRes = await fetch(`/api/thesis/${thesisId}`);
+          const thesis = await thesisRes.json();
+          console.log('Thesis data:', thesis);
+  
+          if (
+            Array.isArray(thesis.committee_grades) &&
+            thesis.committee_grades.length > 0 &&
+            (thesis.status === 'under_review' || thesis.status === 'completed')
+          ) {
+            document.getElementById('exam-report-btn')?.classList.remove('d-none');
+          }
+        } else {
+          console.warn('Thesis not found for this student.');
+        }
+      } catch (err) {
+        console.error('Error fetching thesis or grades:', err);
+      }
+    });
+  </script>
+  <script>
+    window.addEventListener('DOMContentLoaded', () => {
+      fetch('/api/check-session')
+        .then(res => res.json())
+        .then(data => {
+          if (data.loggedIn) {
+            document.getElementById('navbar-username').textContent = data.username;
+          } else {
+            window.location.href = '/login.html';
+          }
+        });
+  
+      document.getElementById('logout-btn').addEventListener('click', () => {
+        fetch('/api/logout', { method: 'POST' })
+          .then(() => window.location.href = '/login.html');
+      });
+    });
+  </script>
   <script>
     window.addEventListener('DOMContentLoaded', async () => {
       try {
@@ -242,10 +240,12 @@
         document.getElementById('under-assignment').style.display = 'none';
         document.getElementById('under-examination').style.display = 'none';
         document.getElementById('completed').style.display = 'none';
-  
-        if (thesis.status === 'active') {
-          document.getElementById('under-assignment').style.display = 'block';
-        } else if (thesis.status === 'under_review') {
+        document.getElementById('manage-thesis').style.display = 'block';
+
+        if( thesis.status === 'active'){
+          document.getElementById('manage-thesis').style.display = 'none';
+        } else 
+        if (thesis.status === 'under_review') {
           document.getElementById('under-examination').style.display = 'block';
         } else if (thesis.status === 'completed') {
           document.getElementById('completed').style.display = 'block';

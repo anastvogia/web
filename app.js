@@ -1467,6 +1467,7 @@ app.get('/api/thesis/:id/announcement', async (req, res) => {
   try {
     const connection = await mysql.createConnection(dbConfig);
 
+    // Fetch thesis data
     const [rows] = await connection.query(`
       SELECT 
         t.title, 
@@ -1474,24 +1475,54 @@ app.get('/api/thesis/:id/announcement', async (req, res) => {
         t.exam_mode, 
         t.exam_location, 
         t.exam_link,
-        t.committee,
         t.announcement
       FROM thesis t
       WHERE t.id = ?
     `, [thesisId]);
 
-    await connection.end();
-
     if (rows.length === 0) {
+      await connection.end();
       return res.status(404).json({ success: false, message: 'Thesis not found' });
     }
 
     const thesis = rows[0];
 
+    // Fetch accepted committee members
+    const [committee] = await connection.query(`
+      SELECT u.username
+      FROM committee_invites ci
+      JOIN users u ON ci.professor_id = u.id
+      WHERE ci.thesis_id = ? AND ci.status = 'accepted'
+    `, [thesisId]);
+
+    // Fetch supervisor
+    const [[supervisorResult]] = await connection.query(`
+      SELECT u.username
+      FROM thesis t
+      JOIN users u ON t.professor_id = u.id
+      WHERE t.id = ?
+    `, [thesisId]);
+
+    await connection.end();
+
+    // Combine committee + supervisor, deduplicate
+    const committeeNames = committee.map(c => c.username);
+    const supervisorName = supervisorResult?.username;
+    const allNamesSet = new Set([...committeeNames, supervisorName]);
+
+    const allNames = Array.from(allNamesSet);
+    if (allNames.length < 2) {
+      allNames.push('Pending');
+    }
+
+    const committeeString = allNames.join(', ');
+
+    // If manual announcement exists
     if (thesis.announcement) {
       return res.json({ success: true, announcement: thesis.announcement });
     }
 
+    // Validate required fields
     if (!thesis.exam_date || (!thesis.exam_location && !thesis.exam_link)) {
       return res.status(400).json({ success: false, message: 'Presentation details are missing' });
     }
@@ -1511,18 +1542,19 @@ Date and Time: ${new Date(thesis.exam_date).toLocaleString('en-GB')}
 ${examPlace}
 
 Committee Members:
-${thesis.committee || 'Pending'}
+${committeeString}
 
 You are invited to attend the presentation.
     `;
 
-    res.json({ success: true, announcement: autoAnnouncement });
+    res.json({ success: true, announcement: autoAnnouncement.trim() });
 
   } catch (error) {
     console.error('Error generating announcement:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
 
 app.get('/api/professor-announcements', async (req, res) => {
   if (!req.session.user || req.session.user.role !== 'professor') {
