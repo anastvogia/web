@@ -374,7 +374,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
   <script>
   document.getElementById('thesis-form').addEventListener('submit', async (e) => {
-
+    e.preventDefault();
+    
     const formData = new FormData();
     formData.append('title', document.getElementById('thesis-title').value);
     formData.append('description', document.getElementById('thesis-description').value);
@@ -390,6 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (response.ok) {
         alert('Thesis submitted successfully!');
         document.getElementById('thesis-form').reset();
+        await loadTheses();
       } else {
         alert(`Failed to submit thesis: ${result.message}`);
       }
