@@ -463,6 +463,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const studentsRes = await fetch('/api/students-without-thesis');
     const students = await studentsRes.json();
     const studentSelect = document.getElementById('student-select');
+    const thesisSelect = document.getElementById('thesis-select');
 
     students.forEach(student => {
       const option = document.createElement('option');
