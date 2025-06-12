@@ -392,6 +392,7 @@ document.addEventListener('DOMContentLoaded', () => {
         alert('Thesis submitted successfully!');
         document.getElementById('thesis-form').reset();
         await loadTheses();
+        await loadAvailableTheses();
       } else {
         alert(`Failed to submit thesis: ${result.message}`);
       }
@@ -440,20 +441,26 @@ document.addEventListener('DOMContentLoaded', () => {
   </div>
   
   <script>
-  document.addEventListener('DOMContentLoaded', async () => {
+
+  async function loadAvailableTheses(){
     const thesisSelect = document.getElementById('thesis-select');
     const studentSelect = document.getElementById('student-select');
   
     const thesesRes = await fetch('/api/available-theses');
     const theses = await thesesRes.json();
-  
+    
+    thesisSelect.innerHTML = '';
     theses.forEach(thesis => {
       const option = document.createElement('option');
       option.value = thesis.id;
       option.textContent = `${thesis.title} (ID: ${thesis.id})`;
       thesisSelect.appendChild(option);
     });
-  
+  }
+
+  document.addEventListener('DOMContentLoaded', async () => {
+
+    loadAvailableTheses();
     const studentsRes = await fetch('/api/students-without-thesis');
     const students = await studentsRes.json();
   
