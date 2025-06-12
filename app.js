@@ -870,17 +870,46 @@ app.post('/api/set-nemertis-link', async (req, res) => {
 
   try {
     const connection = await mysql.createConnection(dbConfig);
+
+    // Step 1: Get thesis ID for the student
+    const [[thesis]] = await connection.query(
+      'SELECT id FROM thesis WHERE student_id = ?',
+      [studentId]
+    );
+
+    if (!thesis) {
+      await connection.end();
+      return res.status(404).json({ error: 'Thesis not found' });
+    }
+
+    const thesisId = thesis.id;
+
+    // Step 2: Count committee grades with a final_grade for this thesis
+    const [[{ grade_count }]] = await connection.query(
+      'SELECT COUNT(*) AS grade_count FROM committee_grades WHERE thesis_id = ? AND final_grade IS NOT NULL',
+      [thesisId]
+    );
+
+    if (grade_count !== 3) {
+      await connection.end();
+      return res.status(400).json({ error: 'All 3 committee grades must be submitted before setting the link.' });
+    }
+
+    // Step 3: Update the thesis with the nemertis link
     await connection.query(
       'UPDATE thesis SET nemertis_link = ? WHERE student_id = ?',
       [nemertis_link, studentId]
     );
+
     await connection.end();
     res.json({ success: true });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ error: 'Failed to save link' });
   }
 });
+
 
 async function updateThesisStatus(thesisId, newStatus) {
   const connection = await mysql.createConnection(dbConfig);

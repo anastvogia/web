@@ -154,9 +154,10 @@
     
         if (
           thesis.status?.trim().toLowerCase() === 'under_review' &&
-          thesis.nemertis_link?.trim() !== '' &&
+          typeof thesis.nemertis_link === 'string' &&
+          thesis.nemertis_link.trim() !== '' &&
           Array.isArray(thesis.committee_grades) &&
-          thesis.committee_grades.length > 0
+          thesis.committee_grades.length === 3
         ) {
           document.getElementById('complete-button-container').classList.remove('d-none');
         }
