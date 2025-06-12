@@ -93,12 +93,13 @@
           <p>Select committee members:</p>
           <span class="text-warning border border-warning px-2 py-1 rounded small">Invite Instructor</span>
         </div>
-        <div class="mt-3">
+        <div id="professor-invite-section" class="mt-3 d-none">
           <h6>Available Professors:</h6>
           <ul id="professor-list" class="list-group mb-3"></ul>
           <h6>Invited Professors:</h6>
           <ul id="invite-list" class="list-group"></ul>
         </div>
+        
 
         <div id="under-examination" class="mt-4">
           <h5>Under Examination</h5>
@@ -318,6 +319,8 @@
           }
   
           loadInvites();
+          document.getElementById('professor-invite-section').classList.remove('d-none');
+
         }
   
       } catch (err) {
