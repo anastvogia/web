@@ -83,11 +83,12 @@ async function loadTheses(status = '', role = '') {
           </td>
           <td>
             ${
-              thesis.status === 'active'
+              thesis.status === 'active' && thesis.role === 'Supervisor'
                 ? `<button class="btn btn-sm btn-outline-warning mark-under-review-btn" data-id="${thesis.id}">Mark as Under Review</button>`
                 : `<span class="text-muted">N/A</span>`
             }
           </td>
+
           <td>
             ${
               thesis.status === 'under_review'
