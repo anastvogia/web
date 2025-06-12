@@ -68,7 +68,11 @@ async function loadTheses(status = '', role = '') {
             <button class="btn btn-sm btn-outline-primary edit-thesis" data-id="${thesis.id}">Edit</button>
           </td>
           <td>
-            <button class="btn btn-sm btn-outline-secondary view-comments" data-id="${thesis.id}">View</button>
+            ${
+              thesis.status === 'active' || thesis.status === 'under_review'
+                ? `<button class="btn btn-sm btn-outline-secondary view-comments" data-id="${thesis.id}">View</button>`
+                : `<span class="text-muted">N/A</span>`
+            }
           </td>
           <td>
             ${
@@ -102,7 +106,6 @@ async function loadTheses(status = '', role = '') {
         tbody.appendChild(row);
       });
 
-
       document.querySelectorAll('.mark-under-review-btn').forEach(button => {
         button.addEventListener('click', async (e) => {
           const thesisId = e.target.getAttribute('data-id');
@@ -129,11 +132,11 @@ async function loadTheses(status = '', role = '') {
       });
 
       document.querySelectorAll('.edit-thesis').forEach(button => {
-             button.addEventListener('click', (e) => {
-               const thesisId = e.target.getAttribute('data-id');
-               openEditForm(thesisId);
-             });
-           });
+        button.addEventListener('click', (e) => {
+          const thesisId = e.target.getAttribute('data-id');
+          openEditForm(thesisId);
+        });
+      });
 
     } else {
       alert('Failed to load theses.');
@@ -143,6 +146,7 @@ async function loadTheses(status = '', role = '') {
     alert('An error occurred while loading theses.');
   }
 }
+
 
 async function openGrading(thesisId) {
   try {
