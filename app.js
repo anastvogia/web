@@ -40,6 +40,7 @@ app.use('/thesis', express.static(path.join(__dirname, 'thesis')));
 
 app.use('/upload', express.static(path.join(__dirname, 'upload')));
 
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 app.get('/', (req, res) => {
   res.redirect('/login.html');
@@ -2302,6 +2303,24 @@ app.post('/api/cancel-thesis', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+
+app.get('/download-thesis/:id', async (req, res) => {
+  const thesisId = req.params.id;
+  const connection = await mysql.createConnection(dbConfig);
+  const [rows] = await connection.execute(
+    'SELECT description_file FROM thesis WHERE id = ?',
+    [thesisId]
+  );
+  await connection.end();
+
+  if (!rows.length) return res.status(404).send('Not found');
+
+  const filePath = rows[0].description_file;
+  const fullPath = path.join(__dirname, filePath);
+  res.download(fullPath, `thesis-${thesisId}.pdf`); // 👈 forces filename to end in .pdf
+});
+
 
 
 app.listen(PORT, () => {
