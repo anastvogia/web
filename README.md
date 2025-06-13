@@ -17,4 +17,21 @@ module.exports = {
     database: 'yourdb'
   }
 
+Παρατήρηση:
+Για την σωστή λειτουργία της βάσης θα πρέπει να προστεθεί και το παρακάτω trigger:
+
+DELIMITER $$
+
+CREATE TRIGGER trg_log_status_change
+AFTER UPDATE ON thesis
+FOR EACH ROW
+BEGIN
+  IF OLD.status <> NEW.status THEN
+    INSERT INTO thesis_status_history (thesis_id, old_status, new_status)
+    VALUES (NEW.id, OLD.status, NEW.status);
+  END IF;
+END$$
+
+DELIMITER ;
+
 
