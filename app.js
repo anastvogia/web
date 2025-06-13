@@ -327,7 +327,7 @@ app.get('/api/exam-report', async (req, res) => {
     const connection = await mysql.createConnection(dbConfig);
 
     const [thesisRows] = await connection.query(`
-      SELECT id, title, exam_date, exam_location, nemertis_link
+      SELECT id, title, exam_date, exam_location, exam_link, nemertis_link
       FROM thesis
       WHERE student_id = ?
     `, [req.session.user.id]);
@@ -392,7 +392,7 @@ app.get('/api/exam-report', async (req, res) => {
                 <strong>Exam Date:</strong> ${new Date(thesis.exam_date).toLocaleString()}
               </p>
               <p class="mb-2">
-                <strong>Location:</strong> ${thesis.exam_location}
+                <strong>Location:</strong> ${thesis.exam_location || thesis.exam_link}
               </p>
               <p class="mb-0">
                 <strong>Nemertis Link:</strong>
@@ -429,7 +429,7 @@ app.get('/api/completed-thesis', async (req, res) => {
     const connection = await mysql.createConnection(dbConfig);
 
     const [thesisRows] = await connection.query(`
-      SELECT id, title, description, assigned_date, days_since_assignment, protocol_number
+      SELECT id, title, description, assigned_date, days_since_assignment, protocol_number, exam_location
       FROM thesis
       WHERE student_id = ?
     `, [req.session.user.id]);
@@ -441,6 +441,7 @@ app.get('/api/completed-thesis', async (req, res) => {
 
     const thesis = thesisRows[0];
 
+    // Fetch accepted committee members
     const [committeeRows] = await connection.query(`
       SELECT u.username
       FROM committee_invites ci
@@ -448,7 +449,36 @@ app.get('/api/completed-thesis', async (req, res) => {
       WHERE ci.thesis_id = ? AND ci.status = 'accepted'
     `, [thesis.id]);
 
-    const committeeList = committeeRows.map(member => member.username).join(', ') || 'Pending';
+    // Fetch supervisor
+    const [[supervisorRow]] = await connection.query(`
+      SELECT u.username
+      FROM thesis t
+      JOIN users u ON t.professor_id = u.id
+      WHERE t.id = ?
+    `, [thesis.id]);
+
+    const [[gradeData]] = await connection.query(`
+      SELECT 
+        ROUND(AVG((quality_grade + duration_grade + text_quality_grade + presentation_grade) / 4), 2) AS final_grade
+      FROM committee_grades
+      WHERE thesis_id = ?
+    `, [thesis.id]);
+
+    thesis.final_grade = gradeData ? gradeData.final_grade : null;
+
+    // Combine, deduplicate, and ensure minimum count
+    const committeeNames = committeeRows.map(member => member.username);
+    const supervisorName = supervisorRow?.username;
+
+    const allMembersSet = new Set([...committeeNames, supervisorName]);
+    const allMembers = Array.from(allMembersSet);
+
+    if (allMembers.length < 2) {
+      allMembers.push('Pending');
+    }
+
+    const committeeList = allMembers.join(', ');
+
 
     const [historyRows] = await connection.query(`
       SELECT old_status, new_status, DATE_FORMAT(changed_at, '%Y-%m-%d %H:%i') AS changed_at
@@ -482,6 +512,23 @@ app.get('/api/completed-thesis', async (req, res) => {
             </div>
             <div class="card-body">
               <h4 class="card-title mb-3">Title: ${thesis.title}</h4>
+              
+              <p class="mb-2">
+                <strong>Final Grade:</strong>
+                <span class="badge fs-6
+                  ${
+                    thesis.final_grade == null
+                      ? 'bg-secondary'
+                      : thesis.final_grade < 5
+                      ? 'bg-danger'
+                      : thesis.final_grade < 7
+                      ? 'bg-warning text-dark'
+                      : 'bg-success'
+                  }">
+                  ${thesis.final_grade ?? 'N/A'}
+                </span>
+              </p>
+
               <p class="mb-2">
                 <strong>Committee:</strong> ${committeeList}
               </p>
@@ -492,12 +539,13 @@ app.get('/api/completed-thesis', async (req, res) => {
                 <strong>Assigned Date:</strong> ${thesis.assigned_date}
               </p>
               <p class="mb-2">
-                <strong>Days Since Assignment:</strong> ${thesis.days_since_assignment} 
+                <strong>Exam Location:</strong> ${thesis.exam_location}
               </p>
               <p class="mb-0">
                 <strong>Protocol Number:</strong> ${thesis.protocol_number}
               </p>
             </div>
+
           </div>
 
           <!-- Status History Card -->
@@ -1196,7 +1244,7 @@ app.post('/api/professor-cancel-assignment', async (req, res) => {
     await connection.query(`
       UPDATE thesis
       SET student_id = NULL,
-          status = NULL,
+          status = "cancelled",
           cancellation_reason = ?
       WHERE id = ?
     `, [reason || null, thesisId]);
@@ -1733,13 +1781,13 @@ app.post('/api/thesis/:id/mark-under-review', async (req, res) => {
     const [result] = await connection.query(`
       UPDATE thesis
       SET status = 'under_review'
-      WHERE id = ? AND status = 'active'
+      WHERE id = ? AND status = 'active' AND protocol_number IS NOT NULL
     `, [thesisId]);
 
     await connection.end();
 
     if (result.affectedRows === 0) {
-      return res.status(400).json({ success: false, message: 'Thesis not found or not active.' });
+      return res.status(400).json({ success: false, message: 'Thesis not found, not active, or missing protocol number.' });
     }
 
     res.json({ success: true, message: 'Thesis marked as under review.' });
@@ -1748,6 +1796,7 @@ app.post('/api/thesis/:id/mark-under-review', async (req, res) => {
     res.status(500).json({ success: false, message: 'Server error.' });
   }
 });
+
 
 app.get('/api/professor-thesis-stats', async (req, res) => {
   if (!req.session.user || req.session.user.role !== 'professor') {

@@ -188,8 +188,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     const res = await fetch(`/api/thesis/${thesisId}`);
     const thesis = await res.json();
 
-    document.getElementById('exam-link').href = thesis.exam_link || '#';
-    document.getElementById('exam-link').textContent = thesis.exam_link || 'N/A';
+    document.getElementById('exam-link').href = thesis.exam_location || '#';
+    document.getElementById('exam-link').textContent = thesis.exam_location || 'N/A';
 
     document.getElementById('nemertis-link').href = thesis.nemertis_link || '#';
     document.getElementById('nemertis-link').textContent = thesis.nemertis_link || 'N/A';
